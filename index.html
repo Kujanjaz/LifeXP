@@ -1,786 +1,1010 @@
 <!doctype html>
-<html>
+<html class="dark">
   <head>
     <meta charset="utf-8" />
     <title>LifeXP</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Tailwind CDN -->
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- React (production) UMD -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-    <!-- Babel for inline JSX -->
+    <script>
+      // Tailwind dark mode
+      tailwind.config = { darkMode: 'class' };
+    </script>
+    <!-- React 18 UMD + Babel -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   </head>
-  <body class="bg-slate-50">
+  <body class="bg-neutral-950 text-neutral-100">
     <div id="root"></div>
 
     <script type="text/babel">
-/* =========================
-   LifeXP — Single-file App
-   ========================= */
-const { useEffect, useMemo, useState } = React;
+      const { useEffect, useMemo, useState } = React;
 
-const APP_VERSION = "v0.5.0";
+      // ================== Utils ==================
+      const todayISO = () => new Date().toISOString().slice(0,10); // YYYY-MM-DD
+      const yestISO = () => { const d=new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); };
+      const nowTs = () => Date.now();
+      const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
 
-/* ===== Utils ===== */
-const todayISO = () => new Date().toISOString().slice(0, 10);
-const yestISO = () => { const d = new Date(); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); };
-const uid = () => (crypto?.randomUUID ? crypto.randomUUID() : Math.random().toString(36).slice(2));
-
-/* XP curve: TotalXP(level) = 50 * L * (L + 1)  → ΔXP to next = 100*(L+1) */
-const totalXpForLevel = (L) => 50 * L * (L + 1);
-const levelFromTotalXp = (xp) => Math.max(0, Math.floor((-1 + Math.sqrt(1 + (4 * xp) / 50)) / 2));
-
-/* Skill Points per level (gentle) */
-const skillPointsForLevel = (L) => 1 + Math.floor(Math.sqrt(L) / 2);
-
-/* Milestones */
-const MILESTONES = [
-  { level: 10, sp: 2, badge: "Apprentice" },
-  { level: 25, sp: 3, badge: "Adept" },
-  { level: 50, sp: 5, badge: "Expert" },
-  { level: 75, sp: 6, badge: "Master" },
-  { level: 100, sp: 8, badge: "Grandmaster" },
-];
-
-/* Skill Tree (Progress-Knight vibe) */
-const SKILL_TREE = {
-  focus:      { key: "focus",      name: "Focus",      desc: "Tasks XP +2%/lvl (max +50%). Also +1% passive rate/lvl (max +20%).", type: "percent", perLevel: 0.02, max: 25, cost: (lvl) => 1 + Math.floor(lvl / 2) },
-  momentum:   { key: "momentum",   name: "Momentum",   desc: "Raise streak bonus cap +0.05/lvl (max +0.5).",                      type: "cap",     perLevel: 0.05, max: 10, cost: (lvl) => 2 + Math.floor(lvl / 2) },
-  scholar:    { key: "scholar",    name: "Scholar",    desc: "Project reward XP +3%/lvl (max +60%).",                               type: "percent", perLevel: 0.03, max: 20, cost: (lvl) => 1 + Math.floor(lvl / 2) },
-  efficiency: { key: "efficiency", name: "Efficiency", desc: "+1 base XP to tasks per lvl (max +10).",                             type: "flat",    perLevel: 1,    max: 10, cost: (lvl) => 1 + lvl },
-};
-
-/* Passive Focus rates (XP/min) + bonus per full 25-min block */
-const PASSIVE_RATES = { Training: 0.8, Language: 1.0, Study: 1.2 };
-const PASSIVE_BLOCK_BONUS = 5;
-
-/* ==== Passive XP caps (now configurable) ==== */
-const DEFAULT_CAPS = { total: 240, perCat: 120 }; // raised from 120/60
-
-function capsForLevel(level) {
-  const baseTotal = 180, basePerCat = 90;
-  return {
-    total: Math.min(400, baseTotal + 3 * level),   // +3 XP/level, cap 400
-    perCat: Math.min(160, basePerCat + 1 * level), // +1 XP/level, cap 160
-  };
-}
-
-function dynamicCaps(level, todayActiveTotal) {
-  const baseT = 160, baseC = 80;
-  return {
-    total: Math.min(400, baseT + Math.floor(0.5 * todayActiveTotal) + 2 * level),
-    perCat: Math.min(160, baseC + Math.floor(0.25 * todayActiveTotal) + 1 * level),
-  };
-}
-
-function computeCaps(level, todayActiveTotal, settings) {
-  const mode = settings?.capMode || "static";
-  if (mode === "level")   return capsForLevel(level);
-  if (mode === "dynamic") return dynamicCaps(level, todayActiveTotal);
-  return {
-    total: settings?.staticTotal ?? DEFAULT_CAPS.total,
-    perCat: settings?.staticPerCat ?? DEFAULT_CAPS.perCat,
-  };
-}
-
-/* Level Titles (themes) + Epithets */
-const TITLE_THEMES = {
-  fantasy:   ["Novice","Apprentice","Adept","Journeyman","Expert","Master","Archmaster","Sage","Mythic","Ascendant","Paragon"],
-  scifi:     ["Cadet","Specialist","Technician","Analyst","Operative","Engineer","Navigator","Commander","Captain","Admiral","Fleet Architect"],
-  scholar:   ["Learner","Reader","Researcher","Scholar","Lecturer","Professor","Senior Professor","Dean","Provost","Chancellor","Laureate"],
-  developer: ["Learner","Debugger","Coder","Developer","Engineer","Senior Engineer","Tech Lead","Architect","Principal","Distinguished","Fellow"],
-  athletics: ["Rookie","Trainee","Contender","Challenger","Competitor","Champion","Elite","National","International","World-Class","Legendary"],
-  minimal:   ["Seed","Sprout","Stem","Branch","Canopy","Grove","Valley","Ridge","Summit","Skyline","Zenith"],
-};
-
-function titleFromLevel(level, theme="fantasy"){
-  const pack = TITLE_THEMES[theme] || TITLE_THEMES.fantasy;
-  const idx = Math.min(Math.floor(level/10), pack.length-1);
-  return pack[idx];
-}
-function epithetFromStats({focusL, scholarL, efficiencyL, momentumL, weekPassiveRatio, weekTasksPerDay}){
-  if (focusL >= 10) return "the Focused";
-  if (scholarL >= 10) return "the Scholar";
-  if (efficiencyL >= 8) return "the Efficient";
-  if (momentumL >= 8) return "the Unstoppable";
-  if (weekPassiveRatio <= 0.30 && weekTasksPerDay >= 3) return "the Doer";
-  return null;
-}
-
-/* LocalStorage Hook */
-function useLocalStorage(key, initialValue) {
-  const [value, setValue] = useState(() => {
-    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : initialValue; } catch { return initialValue; }
-  });
-  useEffect(() => { localStorage.setItem(key, JSON.stringify(value)); }, [key, value]);
-  return [value, setValue];
-}
-
-/* ===================== App ===================== */
-function LifeXPApp() {
-  /* State */
-  const [tasks, setTasks] = useLocalStorage("lifexp.tasks", []);
-  const [projects, setProjects] = useLocalStorage("lifexp.projects", []);
-  const [xp, setXp] = useLocalStorage("lifexp.xp", 0);
-  const [skill, setSkill] = useLocalStorage("lifexp.skill", { points: 0, upgrades: {} });
-  const [lastLevel, setLastLevel] = useLocalStorage("lifexp.lastLevel", 0);
-  const [milestones, setMilestones] = useLocalStorage("lifexp.milestones", { claimed: [] });
-  const [alerts, setAlerts] = useState([]);
-  const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
-  const [log, setLog] = useLocalStorage("lifexp.log", []); // entries: {id,date,type,amount,meta}
-  const [session, setSession] = useLocalStorage("lifexp.session", null); // focus session
-  const [titleTheme, setTitleTheme] = useLocalStorage("lifexp.titleTheme", "fantasy");
-  const [settings, setSettings] = useLocalStorage("lifexp.settings", {
-    capMode: "static",                 // 'static' | 'level' | 'dynamic'
-    staticTotal: DEFAULT_CAPS.total,   // used when static
-    staticPerCat: DEFAULT_CAPS.perCat,
-  });
-
-  /* Migrations */
-  useEffect(() => { if (!skill.upgrades) setSkill({ points: skill.points || 0, upgrades: {} }); }, []);
-
-  /* Alerts */
-  function pushAlert(message) {
-    const id = uid();
-    setAlerts((a) => [...a, { id, message }]);
-    setTimeout(() => setAlerts((a) => a.filter((x) => x.id !== id)), 4000);
-  }
-
-  /* Daily rollover (reset per-day fields) */
-  useEffect(() => {
-    const today = todayISO();
-    if (dateInfo.lastOpen !== today) {
-      setTasks((prev) => prev.map((t) => {
-        const wasYesterday = t.lastCompleted === yestISO();
-        const brokeStreak = t.lastCompleted && !wasYesterday;
-        return { ...t, timesCompletedToday: 0, streak: brokeStreak ? 0 : t.streak || 0 };
-      }));
-      setDateInfo({ lastOpen: today });
-    }
-  }, []);
-
-  /* Level math */
-  const level = useMemo(() => levelFromTotalXp(xp), [xp]);
-  const currentLevelFloor = totalXpForLevel(level);
-  const nextLevelFloor = totalXpForLevel(level + 1);
-  const progress = Math.min(1, (xp - currentLevelFloor) / (nextLevelFloor - currentLevelFloor));
-
-  /* Skill modifiers */
-  const U = skill.upgrades || {};
-  const focusL = U.focus || 0;
-  const momentumL = U.momentum || 0;
-  const scholarL = U.scholar || 0;
-  const efficiencyL = U.efficiency || 0;
-  const tasksMult = 1 + Math.min(focusL * 0.02, 0.5);
-  const passiveMult = 1 + Math.min(focusL * 0.01, 0.2);
-  const projectMult = 1 + Math.min(scholarL * 0.03, 0.6);
-  const baseFlat = Math.min(efficiencyL * 1, 10);
-  const streakCap = 2 + Math.min(momentumL * 0.05, 0.5);
-
-  /* Level-up: SP + milestones */
-  useEffect(() => {
-    if (level > lastLevel) {
-      let baseSP = 0; for (let L = lastLevel + 1; L <= level; L++) baseSP += skillPointsForLevel(L);
-      if (baseSP > 0) setSkill((s) => ({ ...s, points: (s.points || 0) + baseSP }));
-      const newly = MILESTONES.filter((m) => m.level > lastLevel && m.level <= level && !(milestones.claimed || []).includes(m.level));
-      if (newly.length) {
-        const bonus = newly.reduce((sum, m) => sum + (m.sp || 0), 0);
-        if (bonus) setSkill((s) => ({ ...s, points: (s.points || 0) + bonus }));
-        setMilestones((p) => ({ claimed: [...(p.claimed || []), ...newly.map((m) => m.level)] }));
-        newly.forEach((m) => pushAlert(`Milestone: Level ${m.level} — +${m.sp} SP • ${m.badge}`));
+      // Week helpers (ISO week key like 2025-W37)
+      function isoWeekKey(dateStr) {
+        const d = dateStr ? new Date(dateStr) : new Date();
+        const dt = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+        const dayNum = dt.getUTCDay() || 7;
+        dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
+        const yearStart = new Date(Date.UTC(dt.getUTCFullYear(),0,1));
+        const weekNum = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+        return `${dt.getUTCFullYear()}-W${String(weekNum).padStart(2,'0')}`;
       }
-      setLastLevel(level);
-    } else if (level < lastLevel) setLastLevel(level);
-  }, [level]);
+      const startOfToday = () => { const d=new Date(); d.setHours(0,0,0,0); return d.getTime(); };
 
-  /* Derived stats */
-  const todayLogs = useMemo(() => log.filter((e) => e.date === todayISO()), [log]);
-  const sumBy = (arr, pred) => arr.filter(pred).reduce((s, e) => s + (e.amount || 0), 0);
-  const todayPassiveByCat = useMemo(() => ({
-    Study:    sumBy(todayLogs, (e) => e.type === "passive" && e.meta?.category === "Study"),
-    Language: sumBy(todayLogs, (e) => e.type === "passive" && e.meta?.category === "Language"),
-    Training: sumBy(todayLogs, (e) => e.type === "passive" && e.meta?.category === "Training"),
-  }), [todayLogs]);
-  const todayPassiveTotal = Object.values(todayPassiveByCat).reduce((a, b) => a + b, 0);
-  const todayActiveTotal = sumBy(todayLogs, (e) => e.type === "task" || e.type === "project");
-  const todayTotal = todayPassiveTotal + todayActiveTotal;
-  const passiveRatio = todayTotal > 0 ? todayPassiveTotal / todayTotal : 0;
-
-  /* 7-day signals */
-  const lastNDays = (n) => { const days = []; const d = new Date(); for (let i = 0; i < n; i++) { const di = new Date(d); di.setDate(di.getDate() - i); days.push(di.toISOString().slice(0, 10)); } return days.reverse(); };
-  const weekDays = lastNDays(7);
-  const logsByDay = (date) => log.filter((e) => e.date === date);
-  const weekProjectSteps = weekDays.reduce((s, day) => s + logsByDay(day).filter((e) => e.type === "project_step").length, 0);
-  const weekPassive = weekDays.reduce((s, day) => s + sumBy(logsByDay(day), (e) => e.type === "passive"), 0);
-  const weekActive = weekDays.reduce((s, day) => s + sumBy(logsByDay(day), (e) => e.type === "task" || e.type === "project"), 0);
-  const weekTotal = weekPassive + weekActive;
-  const weekPassiveRatio = weekTotal > 0 ? weekPassive / weekTotal : 0;
-  const weekTasksCount = weekDays.reduce((s, day) => s + logsByDay(day).filter((e) => e.type === "task").length, 0);
-  const weekSPSpent = weekDays.reduce((s, day) => s + sumBy(logsByDay(day), (e) => e.type === "sp_spend"), 0);
-  const weekTasksPerDay = weekTasksCount / 7;
-
-  /* Titles */
-  const currentTitle = useMemo(() => titleFromLevel(level, titleTheme), [level, titleTheme]);
-  const currentEpithet = epithetFromStats({ focusL, scholarL, efficiencyL, momentumL, weekPassiveRatio, weekTasksPerDay });
-
-  /* Logging helper */
-  function logEntry(entry) { setLog((L) => [{ id: uid(), ...entry }, ...L]); }
-
-  /* Tasks */
-  const [form, setForm] = useState({ title: "", category: "General", baseXP: 25, preset: "" });
-  const PRESETS = {
-    CS1010E:  { Light: 30, Core: 45, Deep: 60 },
-    MA1301:   { Light: 35, Core: 50, Deep: 70 },
-    LAC1201:  { Light: 30, Core: 40, Deep: 55 },
-    Training: { Light: 30, Core: 45, Deep: 65 },
-  };
-  function applyPreset(category, levelLabel) {
-    const map = PRESETS[category]; if (!map) return;
-    setForm((f) => ({ ...f, category, baseXP: map[levelLabel], preset: `${category}:${levelLabel}` }));
-  }
-  function addTask(e) {
-    e.preventDefault();
-    const title = form.title.trim(); const baseXP = Number(form.baseXP) || 10; if (!title) return;
-    const id = uid();
-    setTasks([...tasks, { id, title, category: form.category || "General", baseXP: Math.max(1, baseXP), streak: 0, lastCompleted: null, timesCompletedToday: 0 }]);
-    setForm({ title: "", category: form.category, baseXP, preset: "" });
-  }
-  function completeTask(taskId) {
-    const today = todayISO();
-    setTasks((prev) => prev.map((t) => {
-      if (t.id !== taskId) return t; if (t.timesCompletedToday >= 1) return t;
-      const continued = t.lastCompleted === yestISO();
-      const newStreak = continued ? (t.streak || 0) + 1 : 1;
-      const base = Math.max(1, (t.baseXP || 0) + baseFlat);
-      const streakBonusMultiplier = Math.min(1 + 0.1 * (newStreak - 1), streakCap);
-      const novelty = t.lastCompleted ? 0 : Math.round(base * 0.2);
-      const totalAward = Math.round((Math.round(base * streakBonusMultiplier) + novelty) * tasksMult);
-      setXp((x) => x + totalAward);
-      logEntry({ date: today, type: "task", amount: totalAward, meta: { taskId: t.id, title: t.title, category: t.category } });
-      pushAlert(`Task: +${totalAward} XP • ${t.title}`);
-      return { ...t, lastCompleted: today, streak: newStreak, timesCompletedToday: (t.timesCompletedToday || 0) + 1 };
-    }));
-  }
-  function deleteTask(taskId) { setTasks(tasks.filter((t) => t.id !== taskId)); }
-
-  /* Projects */
-  const [projForm, setProjForm] = useState({ title: "", description: "", rewardXP: 1000 });
-  function addProject(e) {
-    e.preventDefault();
-    const title = projForm.title.trim(); const rewardXP = Math.max(1, Number(projForm.rewardXP) || 1000); if (!title) return;
-    const p = { id: uid(), title, description: projForm.description.trim(), rewardXP, steps: [], completedAt: null };
-    setProjects([p, ...projects]); setProjForm({ title: "", description: "", rewardXP });
-  }
-  function addProjectStep(projectId, stepTitle) {
-    const title = (stepTitle || "").trim(); if (!title) return;
-    setProjects((prev) => prev.map((p) => p.id === projectId ? { ...p, steps: [...p.steps, { id: uid(), title, done: false }] } : p));
-  }
-  function toggleStep(projectId, stepId) {
-    const today = todayISO();
-    setProjects((prev) => {
-      const updated = prev.map((p) => {
-        if (p.id !== projectId) return p;
-        const steps = p.steps.map((s) => s.id === stepId ? { ...s, done: !s.done } : s);
-        const justDone = steps.find((s) => s.id === stepId)?.done;
-        if (justDone) logEntry({ date: today, type: "project_step", amount: 0, meta: { projectId, stepId } });
-        const allDone = steps.length > 0 && steps.every((s) => s.done);
-        const completedAt = allDone && !p.completedAt ? todayISO() : p.completedAt;
-        return { ...p, steps, completedAt };
-      });
-      const justCompleted = updated.find((p, idx) => p.completedAt && !prev[idx]?.completedAt);
-      if (justCompleted) {
-        const reward = Math.round((justCompleted.rewardXP || 0) * projectMult);
-        setXp((x) => x + reward);
-        logEntry({ date: today, type: "project", amount: reward, meta: { projectId: justCompleted.id, title: justCompleted.title } });
-        pushAlert(`Project complete: +${reward} XP • ${justCompleted.title}`);
+      // Median helper
+      function median(arr) {
+        if (!arr.length) return null;
+        const a = [...arr].sort((x,y)=>x-y);
+        const m = Math.floor(a.length/2);
+        return a.length%2 ? a[m] : (a[m-1]+a[m])/2;
       }
-      return updated;
-    });
-  }
-  function deleteProject(projectId) { setProjects(projects.filter((p) => p.id !== projectId)); }
 
-  /* Skill Tree helpers */
-  function upgLevel(key) { return (skill.upgrades && skill.upgrades[key]) || 0; }
-  function upgCost(key) { const lvl = upgLevel(key); const def = SKILL_TREE[key]; return def.cost(lvl); }
-  function totalSpentFor(key, lvl) { const def = SKILL_TREE[key]; let sum = 0; for (let i = 0; i < lvl; i++) sum += def.cost(i); return sum; }
-  function buyUpgrade(key) {
-    const def = SKILL_TREE[key]; const lvl = upgLevel(key);
-    if (lvl >= def.max) return; const cost = def.cost(lvl);
-    if ((skill.points || 0) < cost) return;
-    setSkill((s) => ({ points: (s.points || 0) - cost, upgrades: { ...(s.upgrades || {}), [key]: lvl + 1 } }));
-    logEntry({ date: todayISO(), type: "sp_spend", amount: cost, meta: { key } });
-  }
-  function respecAll() {
-    if (!confirm("Respec skills and refund all SP?")) return;
-    const up = skill.upgrades || {}; const refund = Object.keys(up).reduce((acc, k) => acc + totalSpentFor(k, up[k] || 0), 0);
-    setSkill({ points: (skill.points || 0) + refund, upgrades: {} });
-  }
+      // ================== Progression math ==================
+      // Quadratic cumulative XP: TotalXP(level) = 50 * L * (L+1)
+      const totalXpForLevel = (L) => 50*L*(L+1);
+      const levelFromTotalXp = (xp) => Math.max(0, Math.floor( (-1 + Math.sqrt(1 + (4*xp)/50)) / 2 ));
+      const skillPointsForLevel = (L) => 1 + Math.floor(Math.sqrt(L)/2);
 
-  /* Focus Sessions (passive XP) */
-  const [focusUI, setFocusUI] = useState({ category: "Study", minutes: 25, outcome: "" });
-  const [tick, setTick] = useState(0);
-  useEffect(() => { if (!session) return; const id = setInterval(() => setTick((t) => t + 1), 1000); return () => clearInterval(id); }, [session]);
-  useEffect(() => { if (!session) return; if (tick % 300 === 0 && tick > 0) pushAlert("Still focused? Keep going ✨"); }, [tick, session]);
+      const MILESTONES = [
+        { level: 10, sp: 2, badge: "Apprentice" },
+        { level: 25, sp: 3, badge: "Adept" },
+        { level: 50, sp: 5, badge: "Expert" },
+        { level: 75, sp: 6, badge: "Master" },
+        { level: 100, sp: 8, badge: "Grandmaster" },
+      ];
 
-  function startSession() {
-    if (session) return;
-    const now = Date.now();
-    setSession({ id: uid(), startedAt: now, category: focusUI.category, targetMinutes: Number(focusUI.minutes) || 25, outcome: "" });
-  }
-  function stopSession() { setSession(null); }
+      const SKILL_TREE = {
+        focus: { key: "focus", name: "Focus", desc: "Tasks XP +2%/lvl (max +50%). Passive rate +1%/lvl (max +20%).", max: 25, cost: lvl => 1 + Math.floor(lvl/2) },
+        momentum: { key: "momentum", name: "Momentum", desc: "Raise streak bonus cap +0.05/lvl (max +0.5).", max: 10, cost: lvl => 2 + Math.floor(lvl/2) },
+        scholar: { key: "scholar", name: "Scholar", desc: "Project reward XP +3%/lvl (max +60%).", max: 20, cost: lvl => 1 + Math.floor(lvl/2) },
+        efficiency: { key: "efficiency", name: "Efficiency", desc: "+1 base XP to tasks per lvl (max +10).", max: 10, cost: lvl => 1 + lvl },
+      };
 
-  function claimSession(outcomeText) {
-    if (!session) return; const end = Date.now();
-    const ms = Math.max(0, end - session.startedAt); const minutes = Math.floor(ms / 60000);
-    if (!outcomeText || outcomeText.trim().length < 4) { pushAlert("Add a short micro-outcome to claim XP"); return; }
+      // Passive Focus rates (XP/min) + block bonus per 25 min
+      const PASSIVE_RATES = { Training: 0.8, Language: 1.0, Study: 1.2 };
+      const PASSIVE_BLOCK_BONUS = 5;
 
-    // Base passive XP
-    const rate = PASSIVE_RATES[session.category] || 1.0;
-    const blocks = Math.floor(minutes / 25);
-    let xpBase = Math.round(minutes * rate + blocks * PASSIVE_BLOCK_BONUS);
-    xpBase = Math.round(xpBase * passiveMult);
+      // ================== Storage Hook ==================
+      function useLocalStorage(key, initialValue) {
+        const [value, setValue] = useState(() => {
+          try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : initialValue; } catch { return initialValue; }
+        });
+        useEffect(()=>{ localStorage.setItem(key, JSON.stringify(value)); }, [key, value]);
+        return [value, setValue];
+      }
 
-    // Caps & soft caps
-    const today = todayISO();
-    const alreadyCat = todayPassiveByCat[session.category] || 0;
-    const alreadyTotal = todayPassiveTotal;
+      // ================== Main App ==================
+      function LifeXPApp() {
+        // Core state
+        const [tasks, setTasks] = useLocalStorage("lifexp.tasks", []);
+        const [projects, setProjects] = useLocalStorage("lifexp.projects", []);
+        const [xp, setXp] = useLocalStorage("lifexp.xp", 0);
+        const [skill, setSkill] = useLocalStorage("lifexp.skill", { points: 0, upgrades: {} });
+        const [lastLevel, setLastLevel] = useLocalStorage("lifexp.lastLevel", 0);
+        const [milestones, setMilestones] = useLocalStorage("lifexp.milestones", { claimed: [] });
+        const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
+        const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
+        const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
 
-    const { total: CAP_T, perCat: CAP_C } = computeCaps(level, todayActiveTotal, settings);
-    const remainingCat   = Math.max(0, CAP_C - alreadyCat);
-    const remainingTotal = Math.max(0, CAP_T - alreadyTotal);
-    const regularCredit  = Math.min(xpBase, remainingCat, remainingTotal);
+        // Settings (dark, caps)
+        const DEFAULT_CAPS = { total: 200, perCat: 100 };
+        const [theme, setTheme] = useLocalStorage("lifexp.theme", "dark"); // "dark" | "light"
+        const [settings, setSettings] = useLocalStorage("lifexp.settings", {
+          capMode: "dynamic", // "static" | "dynamic"
+          staticTotal: DEFAULT_CAPS.total,
+          staticPerCat: DEFAULT_CAPS.perCat,
+        });
 
-    let credited = regularCredit, halved = 0;
-    if (xpBase > regularCredit) {
-      const overflow     = xpBase - regularCredit;
-      const halfCredit   = Math.floor(overflow / 2);
-      const halfRoomCat  = Math.max(0, (CAP_C * 2 - (alreadyCat + regularCredit)));
-      const halfRoomTot  = Math.max(0, (CAP_T * 2 - (alreadyTotal + regularCredit)));
-      halved             = Math.min(halfCredit, halfRoomCat, halfRoomTot);
-      credited          += halved;
-    }
+        // UI misc
+        const [alerts, setAlerts] = useState([]);
 
-    if (credited <= 0) { pushAlert("Passive caps reached — no XP credited"); setSession(null); return; }
-    setXp((x) => x + credited);
-    logEntry({ date: today, type: "passive", amount: credited, meta: { category: session.category, minutes, outcome: outcomeText } });
-    pushAlert(`Focus Session: +${credited} XP • ${session.category}`);
-    setSession(null);
-    setFocusUI((f) => ({ ...f, outcome: "" }));
-  }
+        // Theme effect
+        useEffect(()=>{
+          const el = document.documentElement;
+          if (theme === "dark") el.classList.add("dark"); else el.classList.remove("dark");
+        }, [theme]);
 
-  /* Export / Import / Reset */
-  function exportData() {
-    const snapshot = {
-      tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, titleTheme,
-      meta: { exportedAt: new Date().toISOString(), version: APP_VERSION },
-    };
-    const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a"); a.href = url; a.download = `lifexp-backup-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
-  }
-  function importData(file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      try {
-        const data = JSON.parse(e.target.result); if (!data) return;
-        setTasks(data.tasks || []); setProjects(data.projects || []); setXp(data.xp || 0);
-        setSkill(data.skill || { points: 0, upgrades: {} }); setLastLevel(data.lastLevel || 0);
-        setMilestones(data.milestones || { claimed: [] }); setLog(data.log || []);
-        setSettings(data.settings || { capMode: "static", staticTotal: DEFAULT_CAPS.total, staticPerCat: DEFAULT_CAPS.perCat });
-        if (data.titleTheme) setTitleTheme(data.titleTheme);
-        pushAlert("Import successful ✓");
-      } catch { alert("Invalid file"); }
-    };
-    reader.readAsText(file);
-  }
-  function resetAll() {
-    if (!confirm("Reset XP, tasks, projects, skills, milestones, logs? This cannot be undone.")) return;
-    setXp(0); setSkill({ points: 0, upgrades: {} }); setLastLevel(0); setMilestones({ claimed: [] });
-    setTasks((p) => p.map((t) => ({ ...t, streak: 0, lastCompleted: null, timesCompletedToday: 0 })));
-    setProjects((p) => p.map((pr) => ({ ...pr, completedAt: null, steps: pr.steps.map((s) => ({ ...s, done: false })) })));
-    setLog([]); setSession(null);
-  }
+        // Migrations
+        useEffect(()=>{ if (!skill.upgrades) setSkill({ points: skill.points||0, upgrades: {} }); }, []);
 
-  /* UI helpers */
-  const claimedLevels = milestones.claimed || [];
-  const nextMilestone = useMemo(() => MILESTONES.find((m) => m.level > level), [level]);
-  const completedToday = tasks.filter((t) => t.timesCompletedToday > 0).length;
-  const totalBaseXpToday = tasks.reduce((sum, t) => sum + (t.baseXP || 0), 0);
+        // Alerts
+        function pushAlert(message, kind="info") {
+          const id = uid();
+          setAlerts(a => [...a, { id, message, kind }]);
+          setTimeout(()=> setAlerts(a => a.filter(x=>x.id!==id)), 4000);
+        }
 
-  /* Caps snapshot for displaying */
-  const CAP = computeCaps(level, todayActiveTotal, settings);
+        // Daily rollover
+        useEffect(()=>{
+          const t = todayISO();
+          if (dateInfo.lastOpen !== t) {
+            setTasks(prev => prev.map(task => {
+              const wasYesterday = task.lastCompleted === yestISO();
+              const brokeStreak = task.lastCompleted && !wasYesterday;
+              return { ...task, timesCompletedToday: 0, streak: brokeStreak ? 0 : (task.streak||0) };
+            }));
+            setDateInfo({ lastOpen: t });
+          }
+        }, []);
 
-  return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Alerts */}
-        <div className="space-y-2 mb-4">
-          {alerts.map((a) => (
-            <div key={a.id} className="bg-emerald-50 border border-emerald-200 text-emerald-800 px-3 py-2 rounded-xl shadow-sm text-sm">{a.message}</div>
-          ))}
-        </div>
+        // Levels
+        const level = useMemo(()=> levelFromTotalXp(xp), [xp]);
+        const currentLevelFloor = totalXpForLevel(level);
+        const nextLevelFloor = totalXpForLevel(level+1);
+        const progress = Math.min(1, (xp - currentLevelFloor) / (nextLevelFloor - currentLevelFloor));
 
-        <header className="mb-6 flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold">LifeXP</h1>
-            <p className="text-sm text-slate-500">Level up by completing tasks, projects, and focused study/training sessions.</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={exportData} className="px-3 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm shadow">Export</button>
-            <label className="px-3 py-2 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm shadow cursor-pointer">
-              Import
-              <input type="file" accept="application/json" onChange={(e) => e.target.files?.[0] && importData(e.target.files[0])} className="hidden" />
-            </label>
-            <button onClick={resetAll} className="px-3 py-2 rounded-2xl bg-red-100 hover:bg-red-200 text-red-700 text-sm shadow">Reset All</button>
-          </div>
-        </header>
+        // Skill mods
+        const U = skill.upgrades || {};
+        const focusL = U.focus || 0;
+        const momentumL = U.momentum || 0;
+        const scholarL = U.scholar || 0;
+        const efficiencyL = U.efficiency || 0;
+        const tasksMult = 1 + Math.min(focusL * 0.02, 0.50);
+        const passiveMult = 1 + Math.min(focusL * 0.01, 0.20);
+        const projectMult = 1 + Math.min(scholarL * 0.03, 0.60);
+        const baseFlat = Math.min(efficiencyL * 1, 10);
+        const streakCap = 2 + Math.min(momentumL * 0.05, 0.5);
 
-        {/* Level & Skill */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="text-center">
-              <div className="text-5xl font-extrabold">{level}</div>
-              <div className="text-xs uppercase tracking-wide text-slate-500">Level</div>
-              <div className="mt-1 text-sm font-semibold text-slate-800">
-                {currentTitle}{currentEpithet ? " • " + currentEpithet : ""}
-              </div>
-              <div className="mt-2">
-                <select
-                  className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-white"
-                  value={titleTheme}
-                  onChange={(e)=>setTitleTheme(e.target.value)}
-                  title="Title Theme"
-                >
-                  <option value="fantasy">Fantasy</option>
-                  <option value="scifi">Sci-Fi</option>
-                  <option value="scholar">Scholar</option>
-                  <option value="developer">Developer</option>
-                  <option value="athletics">Athletics</option>
-                  <option value="minimal">Minimal</option>
-                </select>
-              </div>
-            </div>
+        // Level-up handling (SP + milestones)
+        useEffect(()=>{
+          if (level > lastLevel) {
+            let baseSP = 0; for (let L=lastLevel+1; L<=level; L++) baseSP += skillPointsForLevel(L);
+            if (baseSP>0) setSkill(s=>({...s, points:(s.points||0)+baseSP}));
+            const newly = MILESTONES.filter(m=> m.level>lastLevel && m.level<=level && !(milestones.claimed||[]).includes(m.level));
+            if (newly.length) {
+              const bonus = newly.reduce((sum,m)=> sum+(m.sp||0), 0);
+              if (bonus) setSkill(s=>({...s, points:(s.points||0)+bonus}));
+              setMilestones(p=>({ claimed: [...(p.claimed||[]), ...newly.map(m=>m.level)] }));
+              newly.forEach(m=> pushAlert(`Milestone: Level ${m.level} — +${m.sp} SP • ${m.badge}`));
+            }
+            setLastLevel(level);
+          } else if (level < lastLevel) setLastLevel(level);
+        }, [level]);
 
-            <div className="flex-1">
-              <div className="w-full h-3 bg-slate-200 rounded-full overflow-hidden">
-                <div className="h-full bg-emerald-500" style={{ width: `${Math.round(progress * 100)}%` }} />
-              </div>
-              <div className="mt-2 text-xs text-slate-500">{xp - currentLevelFloor} / {nextLevelFloor - currentLevelFloor} XP to Level {level + 1}</div>
-              <div className="mt-1 text-[11px] text-slate-400">SP/level: 1 + ⌊√L/2⌋ • Milestones at 10/25/50/75/100</div>
-              {nextMilestone && (<div className="mt-2 text-xs text-indigo-700">Next milestone: L{nextMilestone.level} (+{nextMilestone.sp} SP • {nextMilestone.badge})</div>)}
-            </div>
+        // ---------- Logs derived ----------
+        const todayStr = todayISO();
+        const todayLogs = useMemo(()=> log.filter(e=> e.date === todayStr), [log, todayStr]);
+        const sumBy = (arr, pred) => arr.filter(pred).reduce((s,e)=> s + (e.amount||0), 0);
 
-            <div className="text-right">
-              <div className="text-lg font-semibold">{xp} XP</div>
-              <div className="text-xs text-slate-500">Total</div>
-              <div className="mt-2 text-lg font-semibold">{skill.points ?? 0} SP</div>
-              <div className="text-xs text-slate-500">Skill Points</div>
-              <button onClick={respecAll} className="mt-2 px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs">Respec (refund)</button>
-            </div>
-          </div>
-          {claimedLevels.length > 0 && (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {MILESTONES.filter((m) => claimedLevels.includes(m.level)).map((m) => (
-                <span key={m.level} className="text-[11px] px-2 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">{m.badge} • L{m.level}</span>
-              ))}
-            </div>
-          )}
-        </div>
+        // Passive minutes (for efficiency throughput denominator)
+        const todayPassiveMinutes = useMemo(()=> {
+          return todayLogs.filter(e=> e.type === "passive").reduce((s,e)=> s + (e.meta?.minutes || 0), 0);
+        }, [todayLogs]);
 
-        {/* Skill Tree */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Skill Tree</h2>
-            <div className="text-sm text-slate-500">Unspent: <span className="font-semibold text-slate-700">{skill.points ?? 0} SP</span></div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {Object.values(SKILL_TREE).map((def) => {
-              const lvl = upgLevel(def.key); const atMax = lvl >= def.max; const cost = atMax ? "—" : upgCost(def.key);
-              let effectText = "";
-              if (def.key === "focus")      effectText = `Tasks +${Math.min(lvl*2,50)}% • Passive +${Math.min(lvl*1,20)}%`;
-              if (def.key === "scholar")    effectText = `Project +${Math.min(lvl*3,60)}%`;
-              if (def.key === "efficiency") effectText = `+${Math.min(lvl,10)} base XP/task`;
-              if (def.key === "momentum")   effectText = `Streak cap ${(2 + Math.min(lvl*0.05,0.5)).toFixed(2)}×`;
-              const canBuy = !atMax && (skill.points || 0) >= (typeof cost === 'number' ? cost : 9999);
-              return (
-                <div key={def.key} className="p-4 rounded-xl border border-slate-100 bg-slate-50">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="font-semibold">{def.name}</div>
-                      <div className="text-sm text-slate-600">{def.desc}</div>
-                      <div className="mt-1 text-xs text-slate-500">{effectText}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm text-slate-500">Level</div>
-                      <div className="text-xl font-bold">{lvl}/{def.max}</div>
-                    </div>
+        const todayPassiveByCat = useMemo(()=> ({
+          Study: sumBy(todayLogs, e=> e.type==="passive" && e.meta?.category==="Study"),
+          Language: sumBy(todayLogs, e=> e.type==="passive" && e.meta?.category==="Language"),
+          Training: sumBy(todayLogs, e=> e.type==="passive" && e.meta?.category==="Training"),
+        }), [todayLogs]);
+
+        const todayPassiveTotal = Object.values(todayPassiveByCat).reduce((a,b)=>a+b,0);
+        const todayActiveTotal = sumBy(todayLogs, e=> e.type==="task" || e.type==="project");
+        const todayTotal = todayPassiveTotal + todayActiveTotal;
+        const passiveRatio = todayTotal>0 ? todayPassiveTotal/todayTotal : 0;
+
+        // Last 7 days health metrics
+        const lastNDates = (n) => {
+          const dates=[]; const d=new Date();
+          for (let i=0; i<n; i++){ const di=new Date(d); di.setDate(di.getDate()-i); dates.push(di.toISOString().slice(0,10)); }
+          return dates.reverse();
+        };
+        const weekDays = lastNDates(7);
+        const logsByDate = (d) => log.filter(e=> e.date===d);
+        const weekProjectSteps = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="project_step").length, 0);
+        const weekPassive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="passive"), 0);
+        const weekActive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="task" || e.type==="project"), 0);
+        const weekTotal = weekPassive + weekActive;
+        const weekPassiveRatio = weekTotal>0 ? weekPassive/weekTotal : 0;
+        const weekTasksCount = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="task").length, 0);
+        const weekSPSpent = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="sp_spend"), 0);
+
+        function logEntry(entry){
+          setLog(L => [{ id: uid(), ts: nowTs(), date: todayISO(), ...entry }, ...L]);
+        }
+
+        // ---------- Settings: Passive Caps (static/dynamic) ----------
+        function dynamicCaps() {
+          // Scale with last 7 days *active* XP
+          const last7 = lastNDates(7);
+          const active7 = last7.reduce((s,d)=> s + sumBy(log.filter(e=> e.date===d), e=> e.type==="task" || e.type==="project"), 0);
+          const avgActivePerDay = active7 / 7;
+          // Base 160 + 0.6×avgActive; clamp 120..400
+          const total = Math.max(120, Math.min(400, Math.round(160 + 0.6 * avgActivePerDay)));
+          const perCat = Math.round(total * 0.5);
+          return { total, perCat };
+        }
+        const caps = settings.capMode === "dynamic"
+          ? dynamicCaps()
+          : { total: settings.staticTotal, perCat: settings.staticPerCat };
+
+        // ================== Task creation & completion ==================
+        const [form, setForm] = useState({ title:"", category:"General", baseXP: 30, estimateMin: 30 });
+
+        function addTask(e){
+          e.preventDefault();
+          const title = form.title.trim(); if (!title) return;
+          const baseXP = Math.max(1, Number(form.baseXP)||10);
+          const estimateMin = Math.max(0, Number(form.estimateMin)||0);
+          setTasks(t => [...t, {
+            id: uid(), title, category: form.category||"General",
+            baseXP, estimateMin, createdAt: todayISO(),
+            streak: 0, lastCompleted: null, timesCompletedToday: 0
+          }]);
+          setForm(f => ({ ...f, title:"" }));
+        }
+
+        // Efficiency helpers from logs
+        function categoryMedianMinutes(cat){
+          const cutoffTs = nowTs() - 14*86400000;
+          const mins = log.filter(e => e.type==="task" && e.meta?.category===cat && e.meta?.actualMin && e.ts >= cutoffTs)
+                          .map(e => e.meta.actualMin);
+          return median(mins) || null;
+        }
+        function contextRunCount(cat){
+          const cutoffTs = nowTs() - 90*60000; // last 90 minutes
+          return 1 + log.filter(e => e.type==="task" && e.meta?.category===cat && e.ts >= cutoffTs).length;
+        }
+        function todaysTaskXPTotal(){
+          return sumBy(todayLogs, e=> e.type==="task");
+        }
+        function todaysEfficiencyBonusPaid(){
+          return sumBy(todayLogs, e=> e.type==="efficiency_daily");
+        }
+
+        function completeTask(taskId){
+          const now = nowTs();
+          const today = todayISO();
+
+          setTasks(prev => prev.map(t => {
+            if (t.id !== taskId) return t;
+            if (t.timesCompletedToday >= 1) return t;
+
+            // Ask optional actual minutes (for efficiency calc). Cancel/blank means skip minutes.
+            let actualMin = null;
+            const ans = prompt("Minutes spent on this task? (optional number)", t.estimateMin ? String(t.estimateMin) : "");
+            if (ans !== null && ans.trim() !== "" && !isNaN(Number(ans))) actualMin = Math.max(0, Math.round(Number(ans)));
+
+            // Base task award (existing system)
+            const continued = t.lastCompleted === yestISO();
+            const newStreak = continued ? (t.streak||0)+1 : 1;
+            const base = Math.max(1, (t.baseXP||0) + baseFlat);
+            const streakMult = Math.min(1 + 0.1*(newStreak-1), streakCap);
+            const novelty = t.lastCompleted ? 0 : Math.round(base*0.2);
+            let taskAward = Math.round((Math.round(base*streakMult) + novelty) * tasksMult);
+
+            // Efficiency bonuses (apply to taskAward with cap relative to original baseXP)
+            const baseXP = t.baseXP || 0;
+            let effBonus = 0;
+
+            // Single-touch: created & completed same day, and within estimate
+            const createdSameDay = (t.createdAt === today);
+            if (createdSameDay && actualMin !== null && t.estimateMin && actualMin <= t.estimateMin) {
+              effBonus += Math.round(0.20 * baseXP);
+            }
+
+            // Cycle-time: faster than personal median for category (14d)
+            const med = categoryMedianMinutes(t.category);
+            if (actualMin !== null && med !== null && actualMin <= 0.75 * med) {
+              effBonus += Math.round(0.15 * baseXP);
+            }
+
+            // Context run: this is ≥3rd task of same category within 90 minutes
+            if (contextRunCount(t.category) >= 3) {
+              effBonus += 10;
+            }
+
+            // Cap efficiency bonus to 30% of baseXP
+            effBonus = Math.min(effBonus, Math.round(0.30 * baseXP));
+
+            // Apply
+            taskAward += effBonus;
+
+            // Grant XP
+            setXp(x => x + taskAward);
+
+            // Logs
+            logEntry({ type:"task", amount: taskAward, meta: {
+              taskId: t.id, title: t.title, category: t.category,
+              estimateMin: t.estimateMin||null, actualMin: actualMin,
+              baseXP: baseXP, efficiencyBonus: effBonus
+            }});
+
+            pushAlert(`Task: +${taskAward} XP • ${t.title}`);
+
+            // Update task fields
+            return { ...t, lastCompleted: today, streak: newStreak, timesCompletedToday: 1 };
+          }));
+
+          // Recompute daily throughput tier (based on task XP vs focused minutes)
+          setTimeout(()=> recomputeDailyThroughputBonus(), 0);
+        }
+
+        function deleteTask(taskId){
+          setTasks(tasks.filter(t=> t.id!==taskId));
+        }
+
+        // Daily throughput bonus (10%/20% of today's task XP, cap +200/day)
+        function recomputeDailyThroughputBonus(){
+          const taskXP = todaysTaskXPTotal();
+          const minutes = todayPassiveMinutes; // focused minutes from sessions
+          if (minutes <= 0 || taskXP <= 0) return;
+
+          const eff = taskXP / minutes;
+          const tier = eff >= 1.5 ? 0.20 : (eff >= 1.2 ? 0.10 : 0);
+          if (!tier) return;
+
+          const target = Math.min(200, Math.round(tier * taskXP));
+          const already = todaysEfficiencyBonusPaid();
+          const delta = target - already;
+          if (delta > 0) {
+            setXp(x => x + delta);
+            logEntry({ type:"efficiency_daily", amount: delta, meta: { eff, minutes, taskXP, tier } });
+            pushAlert(`Daily throughput bonus: +${delta} XP`);
+          }
+        }
+
+        // ================== Projects (with deadlines) ==================
+        const [projForm, setProjForm] = useState({
+          title:"", description:"", rewardXP: 1000, dueDate:"", committed: false
+        });
+
+        function addProject(e){
+          e.preventDefault();
+          const title = projForm.title.trim(); if (!title) return;
+          const rewardXP = Math.max(1, Number(projForm.rewardXP)||1000);
+          const p = {
+            id: uid(),
+            title,
+            description: projForm.description.trim(),
+            rewardXP,
+            steps: [], // {id,title,done,doneAtDate?}
+            completedAt: null,
+            dueDate: projForm.dueDate || "",
+            committed: !!projForm.committed
+          };
+          setProjects([p, ...projects]);
+          setProjForm(f=> ({ ...f, title:"", description:"" }));
+        }
+
+        function deleteProject(projectId){
+          setProjects(projects.filter(p=> p.id!==projectId));
+        }
+
+        function addProjectStep(projectId, stepTitle){
+          const title = (stepTitle||"").trim(); if (!title) return;
+          setProjects(prev => prev.map(p => p.id===projectId ? { ...p, steps:[...p.steps, { id: uid(), title, done:false }] } : p));
+        }
+
+        function toggleStep(projectId, stepId){
+          const today = todayISO();
+          setProjects(prev => {
+            const updated = prev.map(p => {
+              if (p.id !== projectId) return p;
+              const steps = p.steps.map(s => s.id===stepId ? { ...s, done: !s.done, doneAtDate: !s.done ? today : null } : s);
+              const allDone = steps.length>0 && steps.every(s=> s.done);
+              const completedAt = allDone && !p.completedAt ? today : p.completedAt;
+              return { ...p, steps, completedAt };
+            });
+
+            // Detect completion transition
+            const before = prev.find(x=> x.id===projectId);
+            const after  = updated.find(x=> x.id===projectId);
+            if (!before?.completedAt && after?.completedAt) {
+              onProjectCompleted(after);
+            }
+            return updated;
+          });
+        }
+
+        function onProjectCompleted(p){
+          const B = p.rewardXP || 0;
+          let reward = Math.round(B * projectMult);
+          const completedDate = p.completedAt; // YYYY-MM-DD
+          const hasDue = !!p.dueDate;
+
+          // Distribution gate: steps completed on ≥ min(3, ceil(total/3)) distinct days
+          const doneDates = Array.from(new Set((p.steps||[]).filter(s=> s.done && s.doneAtDate).map(s=> s.doneAtDate)));
+          const minDays = Math.min(3, Math.max(1, Math.ceil((p.steps||[]).length / 3)));
+          const distributionOK = doneDates.length >= minDays;
+
+          // Deadline bonus
+          let deadlineBonus = 0;
+          let deadlineFlag = "late";
+          if (hasDue && distributionOK) {
+            const comp = new Date(completedDate+"T00:00:00");
+            const due = new Date(p.dueDate+"T00:00:00");
+            const diffDays = Math.floor((due - comp)/86400000); // positive if early
+
+            if (diffDays >= 1) {
+              deadlineBonus = Math.round(Math.min(0.25*B, 0.04*B*diffDays));
+              deadlineFlag = "early";
+            } else if (Math.abs(Math.floor((comp - due)/86400000)) <= 1) {
+              deadlineBonus = Math.round(0.10*B);
+              deadlineFlag = "on_time";
+            } else {
+              deadlineBonus = 0;
+              deadlineFlag = "late";
+            }
+          }
+
+          // Weekly cap for deadline bonuses: 500 XP
+          const weekKey = isoWeekKey(completedDate);
+          const weekAlready = log.filter(e=> e.type==="deadline_bonus" && e.meta?.week===weekKey)
+                                 .reduce((s,e)=> s + (e.amount||0), 0);
+          const capRemain = Math.max(0, 500 - weekAlready);
+          const appliedDeadlineBonus = Math.min(deadlineBonus, capRemain);
+
+          // Apply rewards
+          const totalGrant = reward + appliedDeadlineBonus;
+          setXp(x => x + totalGrant);
+
+          // Log project reward
+          logEntry({ type:"project", amount: reward, meta: { projectId: p.id, title: p.title } });
+          if (appliedDeadlineBonus>0) {
+            logEntry({ type:"deadline_bonus", amount: appliedDeadlineBonus, meta: { projectId: p.id, title: p.title, flag: deadlineFlag, week: weekKey } });
+          }
+          pushAlert(`Project complete: +${totalGrant} XP • ${p.title}${appliedDeadlineBonus?` (+${appliedDeadlineBonus} deadline bonus)`:''}`);
+
+          // SP token for two+ on-time/early projects this week (max 2/week)
+          if (appliedDeadlineBonus>0) {
+            const metCount = log.filter(e=> e.type==="deadline_bonus" && e.meta?.week===weekKey).length + 1; // +1 for this just-logged
+            const spGrantedThisWeek = log.filter(e=> e.type==="deadline_sp" && e.meta?.week===weekKey)
+                                         .reduce((s,e)=> s + (e.amount||0), 0);
+            if (metCount >= 2 && spGrantedThisWeek < 2) {
+              setSkill(s=> ({ ...s, points: (s.points||0) + 1 }));
+              logEntry({ type:"deadline_sp", amount: 1, meta: { week: weekKey } });
+              pushAlert(`Bonus: +1 SP for consistent deadlines (week ${weekKey})`);
+            }
+          }
+        }
+
+        // ================== Focus Sessions (Passive XP) ==================
+        const [focusUI, setFocusUI] = useState({ category:"Study", minutes:25, outcome:"" });
+        const [tick, setTick] = useState(0);
+
+        useEffect(()=>{ if (!session) return; const id=setInterval(()=>setTick(t=>t+1), 1000); return ()=>clearInterval(id); }, [session]);
+        useEffect(()=>{ if (!session) return; if (tick>0 && tick%300===0) pushAlert("Still focused? Keep going ✨"); }, [tick, session]);
+
+        function startSession(){
+          if (session) return;
+          const mins = Math.max(10, Number(focusUI.minutes)||25);
+          setSession({ id: uid(), startedAt: nowTs(), category: focusUI.category, targetMinutes: mins, outcome: "" });
+        }
+        function stopSession(){ setSession(null); }
+
+        // Passive claim with caps (static or dynamic)
+        function claimSession(outcomeText){
+          if (!session) return;
+          const end = nowTs();
+          const minutes = Math.floor(Math.max(0, end - session.startedAt) / 60000);
+          if (!outcomeText || outcomeText.trim().length<4){ pushAlert("Add a short micro-outcome to claim XP"); return; }
+
+          const rate = PASSIVE_RATES[session.category] || 1.0;
+          const blocks = Math.floor(minutes/25);
+          let xpBase = Math.round(minutes*rate + blocks*PASSIVE_BLOCK_BONUS);
+          xpBase = Math.round(xpBase * passiveMult);
+
+          // Caps with soft overflow at half-rate, using chosen caps
+          const alreadyCat = todayPassiveByCat[session.category] || 0;
+          const alreadyTotal = todayPassiveTotal;
+          const TOTAL_CAP = caps.total;
+          const CAT_CAP = caps.perCat;
+
+          const remainingCat = Math.max(0, CAT_CAP - alreadyCat);
+          const remainingTotal = Math.max(0, TOTAL_CAP - alreadyTotal);
+          const regularCredit = Math.min(xpBase, remainingCat, remainingTotal);
+          let credited = regularCredit;
+          let halved = 0;
+
+          if (xpBase > regularCredit){
+            const overflow = xpBase - regularCredit;
+            const halfCredit = Math.floor(overflow/2);
+            const halfRoomCat = Math.max(0, CAT_CAP*2 - (alreadyCat + regularCredit));
+            const halfRoomTotal = Math.max(0, TOTAL_CAP*2 - (alreadyTotal + regularCredit));
+            halved = Math.min(halfCredit, halfRoomCat, halfRoomTotal);
+            credited += halved;
+          }
+
+          if (credited <= 0){ pushAlert("Passive caps reached — no XP credited"); setSession(null); return; }
+
+          setXp(x=> x + credited);
+          logEntry({ type:"passive", amount: credited, meta: { category: session.category, minutes, outcome: outcomeText } });
+          pushAlert(`Focus Session: +${credited} XP • ${session.category}`);
+          setSession(null);
+          setFocusUI(f=> ({ ...f, outcome:"" }));
+
+          // Recompute daily throughput bonus after new minutes arrive
+          setTimeout(()=> recomputeDailyThroughputBonus(), 0);
+        }
+
+        // ================== Skill Tree ==================
+        function upgLevel(key){ return (skill.upgrades && skill.upgrades[key]) || 0; }
+        function upgCost(key){ const lvl=upgLevel(key); const def=SKILL_TREE[key]; return def.cost(lvl); }
+        function totalSpentFor(key,lvl){ const def=SKILL_TREE[key]; let sum=0; for(let i=0;i<lvl;i++) sum+=def.cost(i); return sum; }
+        function buyUpgrade(key){
+          const def=SKILL_TREE[key]; const lvl=upgLevel(key);
+          if (lvl>=def.max) return; const cost=def.cost(lvl);
+          if ((skill.points||0) < cost) return;
+          setSkill(s=> ({ points:(s.points||0)-cost, upgrades:{ ...(s.upgrades||{}), [key]: lvl+1 } }));
+          logEntry({ type:"sp_spend", amount: cost, meta:{ key } });
+        }
+        function respecAll(){
+          if (!confirm("Respec skills and refund all SP?")) return;
+          const up = skill.upgrades||{};
+          const refund = Object.keys(up).reduce((acc,k)=> acc + totalSpentFor(k, up[k]||0), 0);
+          setSkill({ points:(skill.points||0)+refund, upgrades:{} });
+        }
+
+        // ================== Export/Import/Reset ==================
+        function exportData(){
+          const snapshot = { tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme,
+            meta:{ exportedAt:new Date().toISOString(), version:2 } };
+          const blob = new Blob([JSON.stringify(snapshot,null,2)], { type:"application/json" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a"); a.href=url; a.download=`lifexp-backup-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
+        }
+        function importData(file){
+          const reader = new FileReader();
+          reader.onload = (e)=>{
+            try{
+              const data = JSON.parse(e.target.result);
+              if (!data) return;
+              setTasks(data.tasks||[]); setProjects(data.projects||[]); setXp(data.xp||0);
+              setSkill(data.skill||{ points:0, upgrades:{} }); setLastLevel(data.lastLevel||0);
+              setMilestones(data.milestones||{ claimed:[] }); setLog(data.log||[]);
+              setSettings(data.settings||settings); setTheme(data.theme||theme);
+              pushAlert("Import successful ✓");
+            } catch { alert("Invalid file"); }
+          };
+          reader.readAsText(file);
+        }
+        function resetAll(){
+          if (!confirm("Reset XP, tasks, projects, skills, milestones, logs? This cannot be undone.")) return;
+          setXp(0); setSkill({ points:0, upgrades:{} }); setLastLevel(0); setMilestones({ claimed:[] });
+          setTasks(p=> p.map(t=> ({ ...t, streak:0, lastCompleted:null, timesCompletedToday:0 })));
+          setProjects(p=> p.map(pr=> ({ ...pr, completedAt:null, steps: pr.steps.map(s=> ({ ...s, done:false, doneAtDate:null })) })));
+          setLog([]); setSession(null);
+        }
+
+        // ================== UI ==================
+        const claimedLevels = milestones.claimed||[];
+        const nextMilestone = useMemo(()=> MILESTONES.find(m=> m.level>level), [level]);
+        const completedToday = tasks.filter(t=> t.timesCompletedToday>0).length;
+        const totalBaseXpToday = tasks.reduce((s,t)=> s + (t.baseXP||0), 0);
+
+        const [showSettings, setShowSettings] = useState(false);
+
+        return (
+          <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
+            <div className="max-w-6xl mx-auto">
+              {/* Alerts */}
+              <div className="space-y-2 mb-4">
+                {alerts.map(a=>(
+                  <div key={a.id} className={`px-3 py-2 rounded-xl shadow-sm text-sm border
+                    ${a.kind==="info" ? "bg-emerald-950/50 border-emerald-800 text-emerald-200" : "bg-amber-950/50 border-amber-800 text-amber-200"}`}>
+                    {a.message}
                   </div>
-                  <div className="mt-3 flex items-center justify-between">
-                    <div className="text-xs text-slate-500">Next cost: <span className="font-semibold text-slate-700">{String(cost)}</span> SP</div>
-                    <button disabled={!canBuy} onClick={() => buyUpgrade(def.key)} className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow ${canBuy ? "bg-violet-500 hover:bg-violet-600 text-white" : "bg-slate-200 text-slate-500 cursor-not-allowed"}`}>{atMax ? "Maxed" : "Upgrade"}</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Focus Sessions */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-8">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-xl font-semibold">Focus Sessions</h2>
-            <div className="text-sm text-slate-500">Passive today: <span className="font-semibold text-slate-700">{todayPassiveTotal}</span> / {CAP.total} XP • Ratio: {(passiveRatio*100).toFixed(0)}%</div>
-          </div>
-          {!session ? (
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
-              <div>
-                <label className="text-xs text-slate-500">Category</label>
-                <select className="w-full border border-slate-200 rounded-xl px-3 py-2" value={focusUI.category} onChange={(e)=>setFocusUI({...focusUI, category:e.target.value})}>
-                  {Object.keys(PASSIVE_RATES).map((k)=> <option key={k} value={k}>{k}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-slate-500">Minutes</label>
-                <input type="number" min={10} step={5} className="w-full border border-slate-200 rounded-xl px-3 py-2" value={focusUI.minutes} onChange={(e)=>setFocusUI({...focusUI, minutes:e.target.value})} />
-              </div>
-              <div className="md:col-span-2">
-                <label className="text-xs text-slate-500">(Optional) Outcome goal</label>
-                <input className="w-full border border-slate-200 rounded-xl px-3 py-2" placeholder="e.g., Finish MA1301 T5 Q1–Q3" value={focusUI.outcome} onChange={(e)=>setFocusUI({...focusUI, outcome:e.target.value})} />
-              </div>
-              <div>
-                <button onClick={startSession} className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2 font-semibold shadow">Start</button>
-              </div>
-            </div>
-          ) : (
-            <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-slate-500">Running • {session.category}</div>
-                  <Timer startedAt={session.startedAt} targetMinutes={session.targetMinutes} />
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={stopSession} className="px-3 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700">Stop</button>
-                </div>
-              </div>
-              <div className="mt-3">
-                <label className="text-xs text-slate-500">Micro-outcome (required to claim)</label>
-                <input className="w-full border border-slate-200 rounded-xl px-3 py-2" value={focusUI.outcome} onChange={(e)=>setFocusUI({...focusUI, outcome:e.target.value})} placeholder="What did you accomplish?" />
-                <div className="mt-2 flex gap-2">
-                  <button onClick={()=>claimSession(focusUI.outcome)} className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl px-4 py-2 font-semibold shadow">Claim XP</button>
-                  <button onClick={()=>{ setSession(null); }} className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700">Discard</button>
-                </div>
-                <div className="mt-2 text-xs text-slate-500">Caps: {CAP.total} XP/day total, {CAP.perCat} per category (soft caps, half rate beyond).</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Settings */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-8">
-          <h2 className="text-xl font-semibold mb-3">Settings</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 items-end">
-            <div>
-              <label className="text-xs text-slate-500">Passive cap mode</label>
-              <select
-                className="w-full border border-slate-200 rounded-xl px-3 py-2"
-                value={settings.capMode}
-                onChange={(e)=>setSettings({...settings, capMode: e.target.value})}
-              >
-                <option value="static">Static (manual)</option>
-                <option value="level">Scale with level</option>
-                <option value="dynamic">Dynamic (active-based)</option>
-              </select>
-            </div>
-
-            {settings.capMode === "static" ? (
-              <>
-                <div>
-                  <label className="text-xs text-slate-500">Total cap (XP/day)</label>
-                  <input
-                    type="number" min={0}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2"
-                    value={settings.staticTotal}
-                    onChange={(e)=>setSettings({...settings, staticTotal: Number(e.target.value)||0})}
-                  />
-                </div>
-                <div>
-                  <label className="text-xs text-slate-500">Per-category cap (XP/day)</label>
-                  <input
-                    type="number" min={0}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2"
-                    value={settings.staticPerCat}
-                    onChange={(e)=>setSettings({...settings, staticPerCat: Number(e.target.value)||0})}
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="md:col-span-2 text-sm text-slate-600">
-                Current caps preview:&nbsp;
-                <span className="font-semibold">{CAP.total}</span> total /
-                <span className="font-semibold"> {CAP.perCat}</span> per category
-                &nbsp;({settings.capMode === 'level' ? `based on Level ${level}` : `based on Level ${level} + today's ${todayActiveTotal} active XP`})
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Add Task */}
-        <form onSubmit={addTask} className="bg-white rounded-2xl shadow p-5 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
-          <input className="md:col-span-2 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Task title (e.g., CS1010E daily practice)" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <input className="border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Category (e.g., CS1010E / MA1301 / Training)" value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} />
-          <input type="number" min={1} className="border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Base XP" value={form.baseXP} onChange={(e) => setForm({ ...form, baseXP: e.target.value })} />
-          <div className="md:col-span-2 flex flex-wrap gap-2 items-center">
-            {Object.keys(PRESETS).map((cat)=> (
-              <div key={cat} className="flex items-center gap-1">
-                <span className="text-xs text-slate-500">{cat}:</span>
-                {Object.keys(PRESETS[cat]).map((lvl)=> (
-                  <button type="button" key={lvl} onClick={()=>applyPreset(cat, lvl)} className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs">{lvl}</button>
                 ))}
               </div>
-            ))}
-          </div>
-          <button className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl px-4 py-2 font-semibold shadow">Add Task</button>
-        </form>
 
-        {/* Tasks */}
-        <div className="bg-white rounded-2xl shadow divide-y divide-slate-100 overflow-hidden mb-8">
-          {tasks.length === 0 ? (
-            <div className="p-6 text-slate-500">No tasks yet. Add your first task above.</div>
-          ) : (
-            tasks.map((t) => {
-              const completed = (t.timesCompletedToday || 0) > 0; const streakText = t.streak ? `${t.streak}🔥` : "—";
-              return (
-                <div key={t.id} className="p-4 flex items-center gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className="text-base font-semibold truncate">{t.title}</div>
-                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">{t.category}</span>
+              <header className="mb-6 flex items-center justify-between">
+                <div>
+                  <h1 className="text-3xl font-bold">LifeXP</h1>
+                  <p className="text-sm text-neutral-400">Level up by completing tasks, projects, and focused sessions.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button onClick={()=> setShowSettings(s=>!s)} className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow">
+                    Settings
+                  </button>
+                  <button onClick={()=> setTheme(t=> t==="dark"?"light":"dark")} className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow">
+                    {theme==="dark"?"Light":"Dark"}
+                  </button>
+                  <button onClick={exportData} className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow">Export</button>
+                  <label className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow cursor-pointer">
+                    Import
+                    <input type="file" accept="application/json" onChange={(e)=> e.target.files?.[0] && importData(e.target.files[0])} className="hidden" />
+                  </label>
+                  <button onClick={resetAll} className="px-3 py-2 rounded-2xl bg-rose-900/60 hover:bg-rose-800 text-rose-100 text-sm shadow">Reset All</button>
+                </div>
+              </header>
+
+              {/* Settings panel */}
+              {showSettings && (
+                <div className="mb-6 p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">Passive Cap Mode</div>
+                      <select value={settings.capMode} onChange={(e)=> setSettings(s=> ({...s, capMode:e.target.value}))}
+                        className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2">
+                        <option value="static">Static</option>
+                        <option value="dynamic">Dynamic (auto)</option>
+                      </select>
+                      <div className="mt-2 text-xs text-neutral-400">
+                        {settings.capMode==="dynamic"
+                          ? <>Auto scales with last-week activity. Today: total <b>{caps.total}</b>, per-category <b>{caps.perCat}</b>.</>
+                          : <>Use fields at right. Today: total <b>{caps.total}</b>, per-category <b>{caps.perCat}</b>.</>}
+                      </div>
                     </div>
-                    <div className="text-xs text-slate-500 mt-1">Base {t.baseXP} XP • Streak {streakText} • Last: {t.lastCompleted || "—"}</div>
+                    <div>
+                      <div className="text-sm font-semibold">Static Total Cap (XP/day)</div>
+                      <input type="number" value={settings.staticTotal} onChange={(e)=> setSettings(s=> ({...s, staticTotal:Number(e.target.value||0)}))}
+                        className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold">Static Per-Category Cap</div>
+                      <input type="number" value={settings.staticPerCat} onChange={(e)=> setSettings(s=> ({...s, staticPerCat:Number(e.target.value||0)}))}
+                        className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2" />
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => completeTask(t.id)} disabled={completed} className={`px-3 py-2 rounded-xl text-sm font-semibold shadow ${completed ? "bg-slate-200 text-slate-500 cursor-not-allowed" : "bg-emerald-500 hover:bg-emerald-600 text-white"}`}>{completed ? "Done Today" : "Complete (+XP)"}</button>
-                    <button onClick={() => deleteTask(t.id)} className="px-3 py-2 rounded-xl text-sm font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200 shadow">Delete</button>
+                  <div className="mt-2 text-xs text-neutral-400">Deadline bonus weekly cap: <b>500 XP</b>. Throughput bonus daily cap: <b>+200 XP</b>.</div>
+                </div>
+              )}
+
+              {/* Level & Skills */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                <div className="flex items-center gap-4">
+                  <div className="text-center">
+                    <div className="text-5xl font-extrabold">{level}</div>
+                    <div className="text-xs uppercase tracking-wide text-neutral-400">Level</div>
+                  </div>
+                  <div className="flex-1">
+                    <div className="w-full h-3 bg-neutral-800 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500" style={{ width: `${Math.round(progress*100)}%` }} />
+                    </div>
+                    <div className="mt-2 text-xs text-neutral-400">{xp - currentLevelFloor} / {nextLevelFloor - currentLevelFloor} XP to Level {level+1}</div>
+                    <div className="mt-1 text-[11px] text-neutral-500">SP/level: 1 + ⌊√L/2⌋ • Milestones 10/25/50/75/100</div>
+                    {nextMilestone && (<div className="mt-2 text-xs text-indigo-300">Next milestone: L{nextMilestone.level} (+{nextMilestone.sp} SP • {nextMilestone.badge})</div>)}
+                  </div>
+                  <div className="text-right">
+                    <div className="text-lg font-semibold">{xp} XP</div>
+                    <div className="text-xs text-neutral-400">Total</div>
+                    <div className="mt-2 text-lg font-semibold">{skill.points ?? 0} SP</div>
+                    <div className="text-xs text-neutral-400">Skill Points</div>
+                    <button onClick={respecAll} className="mt-2 px-2 py-1 rounded-lg bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-xs">Respec (refund)</button>
                   </div>
                 </div>
-              );
-            })
-          )}
-        </div>
+                {claimedLevels.length>0 && (
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    {MILESTONES.filter(m=> claimedLevels.includes(m.level)).map(m=>(
+                      <span key={m.level} className="text-[11px] px-2 py-1 rounded-full bg-indigo-900/40 text-indigo-200 border border-indigo-800">{m.badge} • L{m.level}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-        {/* Projects */}
-        <form onSubmit={addProject} className="bg-white rounded-2xl shadow p-5 mb-4 grid grid-cols-1 md:grid-cols-6 gap-3">
-          <input className="md:col-span-2 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Project title (e.g., Learn Integral Calculus)" value={projForm.title} onChange={(e) => setProjForm({ ...projForm, title: e.target.value })} />
-          <input className="md:col-span-3 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Short description" value={projForm.description} onChange={(e) => setProjForm({ ...projForm, description: e.target.value })} />
-          <input type="number" min={1} className="border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-400" placeholder="Reward XP (e.g., 1000)" value={projForm.rewardXP} onChange={(e) => setProjForm({ ...projForm, rewardXP: e.target.value })} />
-          <button className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl px-4 py-2 font-semibold shadow">Add Project</button>
-        </form>
+              {/* Skill Tree */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">Skill Tree</h2>
+                  <div className="text-sm text-neutral-300">Unspent: <span className="font-semibold">{skill.points ?? 0} SP</span></div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {Object.values(SKILL_TREE).map(def=>{
+                    const lvl = upgLevel(def.key); const atMax = lvl>=def.max; const cost = atMax ? "—" : upgCost(def.key);
+                    let effectText = "";
+                    if (def.key==="focus") effectText = `Tasks +${Math.min(lvl*2,50)}% • Passive +${Math.min(lvl*1,20)}%`;
+                    if (def.key==="scholar") effectText = `Project +${Math.min(lvl*3,60)}%`;
+                    if (def.key==="efficiency") effectText = `+${Math.min(lvl,10)} base XP/task`;
+                    if (def.key==="momentum") effectText = `Streak cap ${(2 + Math.min(lvl*0.05,0.5)).toFixed(2)}×`;
+                    const canBuy = !atMax && (skill.points||0) >= (typeof cost === 'number' ? cost : 9999);
+                    return (
+                      <div key={def.key} className="p-4 rounded-xl border border-neutral-800 bg-neutral-900">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="font-semibold">{def.name}</div>
+                            <div className="text-sm text-neutral-300">{def.desc}</div>
+                            <div className="mt-1 text-xs text-neutral-400">{effectText}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm text-neutral-400">Level</div>
+                            <div className="text-xl font-bold">{lvl}/{def.max}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 flex items-center justify-between">
+                          <div className="text-xs text-neutral-400">Next cost: <span className="font-semibold text-neutral-200">{String(cost)}</span> SP</div>
+                          <button disabled={!canBuy} onClick={()=>buyUpgrade(def.key)}
+                            className={`px-3 py-1.5 rounded-lg text-sm font-semibold shadow
+                              ${canBuy ? "bg-violet-600 hover:bg-violet-500 text-white" : "bg-neutral-800 text-neutral-500 cursor-not-allowed"}`}>
+                            {atMax? "Maxed":"Upgrade"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
 
-        <div className="bg-white rounded-2xl shadow divide-y divide-slate-100 overflow-hidden mb-8">
-          {projects.length === 0 ? (
-            <div className="p-6 text-slate-500">No projects yet. Add a challenge above, then add steps.</div>
-          ) : (
-            projects.map((p) => {
-              const total = p.steps.length; const done = p.steps.filter((s) => s.done).length; const pct = total === 0 ? 0 : Math.round((done / total) * 100); const completed = Boolean(p.completedAt);
-              return (
-                <div key={p.id} className="p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
+              {/* Focus Sessions */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">Focus Sessions</h2>
+                  <div className="text-sm text-neutral-300">
+                    Passive today: <span className="font-semibold">{todayPassiveTotal}</span> / {caps.total} XP • Ratio: {(passiveRatio*100).toFixed(0)}%
+                  </div>
+                </div>
+                {!session ? (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-end">
+                    <div>
+                      <label className="text-xs text-neutral-400">Category</label>
+                      <select className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={focusUI.category} onChange={e=> setFocusUI({...focusUI, category:e.target.value})}>
+                        {Object.keys(PASSIVE_RATES).map(k=> <option key={k} value={k}>{k}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-400">Minutes</label>
+                      <input type="number" min={10} step={5} className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={focusUI.minutes} onChange={e=> setFocusUI({...focusUI, minutes:e.target.value})} />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="text-xs text-neutral-400">(Optional) Outcome goal</label>
+                      <input className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        placeholder="e.g., Finish MA1301 T5 Q1–Q3" value={focusUI.outcome}
+                        onChange={e=> setFocusUI({...focusUI, outcome:e.target.value})} />
+                    </div>
+                    <div>
+                      <button onClick={startSession} className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">Start</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-xl bg-neutral-900 border border-neutral-800">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm text-neutral-400">Running • {session.category}</div>
+                        <Timer startedAt={session.startedAt} targetMinutes={session.targetMinutes} />
+                      </div>
                       <div className="flex items-center gap-2">
-                        <div className="text-lg font-semibold">{p.title}</div>
-                        {completed && (<span className="text-xs px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">Completed • {p.completedAt}</span>)}
-                      </div>
-                      {p.description && (<div className="text-sm text-slate-600 mt-1">{p.description}</div>)}
-                      <div className="mt-3">
-                        <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden"><div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} /></div>
-                        <div className="mt-1 text-xs text-slate-500">{done}/{total} steps • Reward {p.rewardXP} XP</div>
+                        <button onClick={stopSession} className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100">Stop</button>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2 min-w-[180px]">
-                      <button onClick={() => deleteProject(p.id)} className="px-3 py-2 rounded-xl text-sm font-semibold bg-rose-100 text-rose-700 hover:bg-rose-200 shadow">Delete Project</button>
-                      {!completed && total > 0 && done === total && (<span className="text-xs text-emerald-700 bg-emerald-100 rounded-xl px-2 py-1">Reward granted on completion ✔</span>)}
+                    <div className="mt-3">
+                      <label className="text-xs text-neutral-400">Micro-outcome (required to claim)</label>
+                      <input className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={focusUI.outcome} onChange={e=> setFocusUI({...focusUI, outcome:e.target.value})}
+                        placeholder="What did you accomplish?" />
+                      <div className="mt-2 flex gap-2">
+                        <button onClick={()=> claimSession(focusUI.outcome)}
+                          className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 font-semibold shadow">Claim XP</button>
+                        <button onClick={()=> setSession(null)} className="px-3 py-2 rounded-xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100">Discard</button>
+                      </div>
+                      <div className="mt-2 text-xs text-neutral-400">
+                        Caps: {caps.total} XP/day total, {caps.perCat} per category (soft caps, half rate beyond).
+                      </div>
                     </div>
                   </div>
+                )}
+              </div>
 
-                  <div className="mt-4 space-y-2">
-                    {p.steps.length === 0 ? (
-                      <div className="text-sm text-slate-500">No steps yet. Add steps below.</div>
-                    ) : (
-                      p.steps.map((s) => (
-                        <label key={s.id} className="flex items-start gap-3 p-2 rounded-xl hover:bg-slate-50 cursor-pointer">
-                          <input type="checkbox" className="mt-1 h-4 w-4" checked={s.done} onChange={() => toggleStep(p.id, s.id)} disabled={Boolean(p.completedAt)} />
-                          <span className={`text-sm ${s.done ? "line-through text-slate-400" : "text-slate-700"}`}>{s.title}</span>
-                        </label>
-                      ))
-                    )}
-                  </div>
+              {/* Add Task */}
+              <form onSubmit={addTask} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
+                <input className="md:col-span-2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Task title (e.g., CS1010E daily practice)"
+                  value={form.title} onChange={e=> setForm({...form, title:e.target.value})} />
+                <input className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Category (e.g., CS1010E / MA1301 / Training)"
+                  value={form.category} onChange={e=> setForm({...form, category:e.target.value})} />
+                <input type="number" min="1" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Base XP" value={form.baseXP} onChange={e=> setForm({...form, baseXP:e.target.value})} />
+                <input type="number" min="0" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Estimate (min, optional)" value={form.estimateMin} onChange={e=> setForm({...form, estimateMin:e.target.value})} />
+                <button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">Add Task</button>
+              </form>
 
-                  {!p.completedAt && (<AddStepInline onAdd={(title) => addProjectStep(p.id, title)} />)}
+              {/* Tasks */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 divide-y divide-neutral-800 overflow-hidden mb-8">
+                {tasks.length===0 ? (
+                  <div className="p-6 text-neutral-400">No tasks yet. Add your first task above.</div>
+                ) : (
+                  tasks.map(t=>{
+                    const completed = (t.timesCompletedToday||0) > 0;
+                    const streakText = t.streak ? `${t.streak}🔥` : "—";
+                    return (
+                      <div key={t.id} className="p-4 flex items-center gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <div className="text-base font-semibold truncate">{t.title}</div>
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                              {t.category}
+                            </span>
+                          </div>
+                          <div className="text-xs text-neutral-400 mt-1">
+                            Base {t.baseXP} XP • Est {t.estimateMin||0} min • Streak {streakText} • Last: {t.lastCompleted || "—"}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button onClick={()=> completeTask(t.id)} disabled={completed}
+                            className={`px-3 py-2 rounded-xl text-sm font-semibold shadow
+                              ${completed ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white"}`}>
+                            {completed ? "Done Today" : "Complete (+XP)"}
+                          </button>
+                          <button onClick={()=> deleteTask(t.id)}
+                            className="px-3 py-2 rounded-xl text-sm font-semibold bg-rose-900/60 hover:bg-rose-800 text-rose-100 shadow">
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Add Project */}
+              <form onSubmit={addProject} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-4 grid grid-cols-1 md:grid-cols-8 gap-3">
+                <input className="md:col-span-2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Project title (e.g., Learn Integral Calculus)"
+                  value={projForm.title} onChange={e=> setProjForm({...projForm, title:e.target.value})} />
+                <input className="md:col-span-3 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Short description"
+                  value={projForm.description} onChange={e=> setProjForm({...projForm, description:e.target.value})} />
+                <input type="date" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={projForm.dueDate} onChange={e=> setProjForm({...projForm, dueDate:e.target.value})} />
+                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                  <input type="checkbox" className="accent-emerald-600"
+                    checked={projForm.committed} onChange={e=> setProjForm({...projForm, committed:e.target.checked})} />
+                  Commit deadline
+                </label>
+                <div className="flex items-center gap-2">
+                  <input type="number" min="1" className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    placeholder="Reward XP (e.g., 1000)" value={projForm.rewardXP}
+                    onChange={e=> setProjForm({...projForm, rewardXP:e.target.value})} />
+                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 font-semibold shadow">Add Project</button>
                 </div>
-              );
-            })
-          )}
-        </div>
+              </form>
 
-        {/* Weekly Health */}
-        <div className="bg-white rounded-2xl shadow p-5 mb-8">
-          <h2 className="text-xl font-semibold mb-3">Weekly Health</h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <HealthCard label="Project steps/day" value={(weekProjectSteps/7).toFixed(1)} hint="≥ 1 is healthy" ok={(weekProjectSteps/7)>=1} />
-            <HealthCard label="Passive share" value={`${(weekPassiveRatio*100).toFixed(0)}%`} hint="≤ 40% is healthy" ok={weekPassiveRatio<=0.4} />
-            <HealthCard label="Tasks/day" value={(weekTasksCount/7).toFixed(1)} hint="≥ 2 Core+" ok={(weekTasksCount/7)>=2} />
-            <HealthCard label="SP spent (wk)" value={weekSPSpent} hint="≥ 1 most weeks" ok={weekSPSpent>=1} />
+              {/* Projects list */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 divide-y divide-neutral-800 overflow-hidden mb-8">
+                {projects.length===0 ? (
+                  <div className="p-6 text-neutral-400">No projects yet. Add a challenge above, then add steps.</div>
+                ) : (
+                  projects.map(p=>{
+                    const total=p.steps.length; const done=p.steps.filter(s=>s.done).length;
+                    const pct = total===0 ? 0 : Math.round((done/total)*100);
+                    const completed = !!p.completedAt;
+
+                    // Bonus preview (approximate)
+                    let preview="";
+                    if (p.dueDate && !completed){
+                      const due = new Date(p.dueDate+"T00:00:00");
+                      const diff = Math.floor((due - new Date())/86400000);
+                      if (diff>=1)      preview = `Early bonus up to +${Math.min(25, diff*4)}% (${Math.min(25, diff*4)}% if finished today)`;
+                      else if (Math.abs(diff)<=1) preview = "On-time bonus +10%";
+                      else               preview = "Late (no deadline bonus)";
+                    }
+
+                    return (
+                      <div key={p.id} className="p-4">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <div className="text-lg font-semibold">{p.title}</div>
+                              {completed && (<span className="text-xs px-2 py-0.5 rounded-full bg-emerald-900/50 text-emerald-200 border border-emerald-800">
+                                Completed • {p.completedAt}
+                              </span>)}
+                            </div>
+                            {p.description && (<div className="text-sm text-neutral-300 mt-1">{p.description}</div>)}
+                            <div className="mt-2 text-xs text-neutral-400">
+                              Reward {p.rewardXP} XP {p.dueDate && <>• Due {p.dueDate} {p.committed && <span className="text-emerald-300">• committed</span>}</>}
+                            </div>
+                            {preview && !completed && <div className="mt-1 text-xs text-indigo-300">{preview}</div>}
+                            <div className="mt-3">
+                              <div className="w-full h-2 bg-neutral-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-indigo-500" style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="mt-1 text-xs text-neutral-400">{done}/{total} steps</div>
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-2 min-w-[180px]">
+                            <button onClick={()=> deleteProject(p.id)}
+                              className="px-3 py-2 rounded-xl text-sm font-semibold bg-rose-900/60 hover:bg-rose-800 text-rose-100 shadow">
+                              Delete Project
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 space-y-2">
+                          {p.steps.length===0 ? (
+                            <div className="text-sm text-neutral-400">No steps yet. Add steps below.</div>
+                          ) : (
+                            p.steps.map(s=>(
+                              <label key={s.id} className="flex items-start gap-3 p-2 rounded-xl hover:bg-neutral-800 cursor-pointer">
+                                <input type="checkbox" className="mt-1 h-4 w-4 accent-indigo-600"
+                                  checked={s.done} onChange={()=> toggleStep(p.id, s.id)} disabled={Boolean(p.completedAt)} />
+                                <span className={`text-sm ${s.done ? "line-through text-neutral-500" : "text-neutral-100"}`}>{s.title}</span>
+                                {s.doneAtDate && <span className="ml-auto text-xs text-neutral-500">done {s.doneAtDate}</span>}
+                              </label>
+                            ))
+                          )}
+                        </div>
+
+                        {!p.completedAt && (<AddStepInline onAdd={(title)=> addProjectStep(p.id, title)} />)}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+
+              {/* Weekly Health */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <h2 className="text-xl font-semibold mb-3">Weekly Health</h2>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <HealthCard label="Project steps/day" value={(weekProjectSteps/7).toFixed(1)} hint="≥ 1 is healthy" ok={(weekProjectSteps/7)>=1} />
+                  <HealthCard label="Passive share" value={`${(weekPassiveRatio*100).toFixed(0)}%`} hint="≤ 40–50% is healthy" ok={weekPassiveRatio<=0.5} />
+                  <HealthCard label="Tasks/day" value={(weekTasksCount/7).toFixed(1)} hint="≥ 2 Core+" ok={(weekTasksCount/7)>=2} />
+                  <HealthCard label="SP spent (wk)" value={weekSPSpent} hint="≥ 1 most weeks" ok={weekSPSpent>=1} />
+                </div>
+                <div className="mt-2 text-xs text-neutral-400">These are guideposts, not rules. Adjust caps/presets if something drifts.</div>
+              </div>
+
+              {/* Quick stats */}
+              <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                  <div className="text-sm text-neutral-400">Tasks Completed Today</div>
+                  <div className="text-2xl font-bold">{completedToday}</div>
+                </div>
+                <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                  <div className="text-sm text-neutral-400">Planned Base XP (Today)</div>
+                  <div className="text-2xl font-bold">{totalBaseXpToday}</div>
+                </div>
+                <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                  <div className="text-sm text-neutral-400">Skill Effects</div>
+                  <div className="text-xs text-neutral-300">
+                    Tasks× {tasksMult.toFixed(2)} • Passive× {passiveMult.toFixed(2)} • Project× {projectMult.toFixed(2)} • Base+ {baseFlat} • Streak cap {streakCap.toFixed(2)}×
+                  </div>
+                  <div className="mt-2 text-xs text-neutral-500">Throughput today uses task XP / focused minutes.</div>
+                </div>
+              </div>
+
+              <div className="mt-8 text-xs text-neutral-500">All data stays in your browser (localStorage). Export/import available. You can add Supabase sync later to share across devices.</div>
+            </div>
           </div>
-          <div className="mt-2 text-xs text-slate-500">Last 7 days • Guideposts, not rules. Adjust caps/presets if something drifts.</div>
-        </div>
+        );
+      }
 
-        <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-          <div className="bg-white rounded-2xl shadow p-4"><div className="text-sm text-slate-500">Tasks Completed Today</div><div className="text-2xl font-bold">{completedToday}</div></div>
-          <div className="bg-white rounded-2xl shadow p-4"><div className="text-sm text-slate-500">Planned Base XP (Today)</div><div className="text-2xl font-bold">{totalBaseXpToday}</div></div>
-          <div className="bg-white rounded-2xl shadow p-4"><div className="text-sm text-slate-500">Skill Effects</div><div className="text-xs text-slate-600">Tasks× {tasksMult.toFixed(2)} • Passive× {passiveMult.toFixed(2)} • Project× {projectMult.toFixed(2)} • Base+ {baseFlat} • Streak cap {streakCap.toFixed(2)}×</div></div>
-        </div>
+      function AddStepInline({ onAdd }){
+        const [title, setTitle] = useState("");
+        return (
+          <form onSubmit={(e)=>{ e.preventDefault(); onAdd(title); setTitle(""); }} className="mt-3 flex items-center gap-2">
+            <input className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+              placeholder="Add a step (e.g., Finish MIT OCW Calc Lecture 1)"
+              value={title} onChange={e=> setTitle(e.target.value)} />
+            <button className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 text-sm font-semibold shadow">Add Step</button>
+          </form>
+        );
+      }
 
-        <div className="mt-8 text-[11px] text-slate-400">LifeXP {APP_VERSION} • All data stays in your browser (localStorage). Export/Import in header. </div>
-      </div>
-    </div>
-  );
-}
+      function Timer({ startedAt, targetMinutes }){
+        const [now, setNow] = useState(nowTs());
+        useEffect(()=>{ const id=setInterval(()=> setNow(nowTs()), 1000); return ()=> clearInterval(id); }, []);
+        const ms = Math.max(0, now - startedAt);
+        const s = Math.floor(ms/1000);
+        const m = Math.floor(s/60);
+        const rem = Math.max(0, targetMinutes - m);
+        return (
+          <div className="text-lg font-semibold">
+            {String(Math.floor(m/60)).padStart(2,'0')}:{String(m%60).padStart(2,'0')}:{String(s%60).padStart(2,'0')}
+            <span className="ml-2 text-xs text-neutral-400">({rem} min left target)</span>
+          </div>
+        );
+      }
 
-/* Small components */
-function AddStepInline({ onAdd }) {
-  const [title, setTitle] = useState("");
-  return (
-    <form onSubmit={(e) => { e.preventDefault(); onAdd(title); setTitle(""); }} className="mt-3 flex items-center gap-2">
-      <input className="flex-1 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" placeholder="Add a step (e.g., Finish MIT OCW Calc Lecture 1)" value={title} onChange={(e) => setTitle(e.target.value)} />
-      <button className="bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl px-4 py-2 text-sm font-semibold shadow">Add Step</button>
-    </form>
-  );
-}
-function Timer({ startedAt, targetMinutes }) {
-  const [now, setNow] = useState(Date.now());
-  useEffect(() => { const id = setInterval(()=>setNow(Date.now()), 1000); return ()=>clearInterval(id); }, []);
-  const ms = Math.max(0, now - startedAt); const s = Math.floor(ms/1000); const m = Math.floor(s/60); const rem = Math.max(0, targetMinutes - m);
-  return (
-    <div className="text-lg font-semibold">
-      {String(Math.floor(m/60)).padStart(2,'0')}:{String(m%60).padStart(2,'0')}:{String(s%60).padStart(2,'0')}
-      <span className="ml-2 text-xs text-slate-500">({rem} min left target)</span>
-    </div>
-  );
-}
-function HealthCard({ label, value, hint, ok }) {
-  return (
-    <div className={`p-4 rounded-xl border shadow ${ok ? 'bg-emerald-50 border-emerald-200' : 'bg-amber-50 border-amber-200'}`}>
-      <div className="text-sm text-slate-500">{label}</div>
-      <div className="text-2xl font-bold">{value}</div>
-      <div className="text-xs text-slate-500">{hint}</div>
-    </div>
-  );
-}
+      function HealthCard({ label, value, hint, ok }){
+        return (
+          <div className={`p-4 rounded-xl border shadow ${ok? 'bg-emerald-950/40 border-emerald-800' : 'bg-amber-950/40 border-amber-800'}`}>
+            <div className="text-sm text-neutral-400">{label}</div>
+            <div className="text-2xl font-bold">{value}</div>
+            <div className="text-xs text-neutral-400">{hint}</div>
+          </div>
+        );
+      }
 
-/* Mount */
-ReactDOM.createRoot(document.getElementById('root')).render(<LifeXPApp />);
+      ReactDOM.createRoot(document.getElementById('root')).render(<LifeXPApp />);
     </script>
   </body>
 </html>
