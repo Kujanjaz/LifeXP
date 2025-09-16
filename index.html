@@ -13,6 +13,47 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase (v12.2.1) -->
+    <script type="module">
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-app.js";
+      import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-analytics.js";
+      import {
+        getAuth,
+        onAuthStateChanged,
+        signInWithEmailAndPassword,
+        createUserWithEmailAndPassword,
+        signOut
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-auth.js";
+      import {
+        getFirestore,
+        doc, getDoc, setDoc, updateDoc, serverTimestamp
+      } from "https://www.gstatic.com/firebasejs/12.2.1/firebase-firestore.js";
+
+      // Firebase Configuration (provided)
+      const firebaseConfig = {
+        apiKey: "AIzaSyCWXb-BjKjgkJOvbd6OPd2bRQASPc-Qfm8",
+        authDomain: "lifexp-94659.firebaseapp.com",
+        projectId: "lifexp-94659",
+        storageBucket: "lifexp-94659.firebasestorage.app",
+        messagingSenderId: "164525761316",
+        appId: "1:164525761316:web:1cbe7c79aa1585953cc9b1",
+        measurementId: "G-KCWXJVSRGQ"
+      };
+
+      const app = initializeApp(firebaseConfig);
+      window.firebaseApp = app;
+      const analytics = getAnalytics(app);
+      window.firebaseAnalytics = analytics;
+
+      // Expose to app code
+      window.firebaseAuth = getAuth(app);
+      window.firebaseDb = getFirestore(app);
+      window.firebaseAuthMethods = {
+        onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut
+      };
+      window.firebaseDbMethods = { doc, getDoc, setDoc, updateDoc, serverTimestamp };
+    </script>
   </head>
   <body class="bg-neutral-950 text-neutral-100">
     <div id="root"></div>
@@ -80,8 +121,167 @@
         return [value, setValue];
       }
 
+      // ================== Cloud Backup System ==================
+      class CloudBackup {
+        constructor() {
+          this.auth = window.firebaseAuth;
+          this.db = window.firebaseDb;
+          this.authMethods = window.firebaseAuthMethods;
+          this.dbMethods = window.firebaseDbMethods;
+          this.isOnline = navigator.onLine;
+          this.syncQueue = [];
+          this.lastSyncTime = null;
+          this.user = null;
+          
+          // Listen for online/offline status
+          window.addEventListener('online', () => {
+            this.isOnline = true;
+            this.processSyncQueue();
+          });
+          
+          window.addEventListener('offline', () => {
+            this.isOnline = false;
+          });
+        }
+
+        async getUserData() {
+          if (!this.user) return null;
+          
+          try {
+            const userRef = this.dbMethods.doc(this.db, 'users', this.user.uid);
+            const userDoc = await this.dbMethods.getDoc(userRef);
+            
+            if (userDoc.exists()) {
+              const data = userDoc.data();
+              this.lastSyncTime = data.lastSync?.toDate() || null;
+              return data;
+            }
+            return null;
+          } catch (error) {
+            console.error('Error fetching user data:', error);
+            return null;
+          }
+        }
+
+        async saveUserData(userData) {
+          if (!this.user) return false;
+          
+          try {
+            const userRef = this.dbMethods.doc(this.db, 'users', this.user.uid);
+            await this.dbMethods.setDoc(userRef, {
+              ...userData,
+              lastSync: this.dbMethods.serverTimestamp(),
+              userId: this.user.uid
+            }, { merge: true });
+            
+            this.lastSyncTime = new Date();
+            return true;
+          } catch (error) {
+            console.error('Error saving user data:', error);
+            return false;
+          }
+        }
+
+        mergeData(localData, cloudData) {
+          const merged = { ...cloudData };
+          
+          ['tasks', 'projects', 'log'].forEach(key => {
+            const local = localData[key] || [];
+            const cloud = cloudData[key] || [];
+            
+            const localMap = new Map(local.map(item => [item.id, item]));
+            const cloudMap = new Map(cloud.map(item => [item.id, item]));
+            
+            const mergedArray = [...cloud];
+            local.forEach(item => {
+              if (cloudMap.has(item.id)) {
+                const index = mergedArray.findIndex(existing => existing.id === item.id);
+                mergedArray[index] = item;
+              } else {
+                mergedArray.push(item);
+              }
+            });
+            
+            merged[key] = mergedArray;
+          });
+          
+          ['xp', 'skill', 'lastLevel', 'milestones', 'dateInfo', 'settings', 'theme'].forEach(key => {
+            if (localData[key] !== undefined) {
+              merged[key] = localData[key];
+            }
+          });
+          
+          return merged;
+        }
+
+        async syncData(localData) {
+          if (!this.user || !this.isOnline) {
+            this.addToSyncQueue(localData);
+            return localData;
+          }
+
+          try {
+            const cloudData = await this.getUserData();
+            
+            if (!cloudData) {
+              await this.saveUserData(localData);
+              return localData;
+            }
+
+            const mergedData = this.mergeData(localData, cloudData);
+            await this.saveUserData(mergedData);
+            return mergedData;
+            
+          } catch (error) {
+            console.error('Sync error:', error);
+            this.addToSyncQueue(localData);
+            return localData;
+          }
+        }
+
+        addToSyncQueue(data) {
+          this.syncQueue.push({ data, timestamp: Date.now() });
+          if (this.syncQueue.length > 5) {
+            this.syncQueue = this.syncQueue.slice(-5);
+          }
+        }
+
+        async processSyncQueue() {
+          if (!this.isOnline || this.syncQueue.length === 0) return;
+          
+          const latestSync = this.syncQueue[this.syncQueue.length - 1];
+          try {
+            await this.syncData(latestSync.data);
+            this.syncQueue = [];
+          } catch (error) {
+            console.error('Failed to process sync queue:', error);
+          }
+        }
+
+        isAuthenticated() {
+          return !!this.user;
+        }
+
+        getSyncStatus() {
+          return {
+            isOnline: this.isOnline,
+            isAuthenticated: this.isAuthenticated(),
+            lastSync: this.lastSyncTime,
+            queuedSyncs: this.syncQueue.length
+          };
+        }
+      }
+
       // ================== Main App ==================
       function LifeXPApp() {
+        // Cloud backup instance
+        const [cloudBackup] = useState(() => new CloudBackup());
+        const [user, setUser] = useState(null);
+        const [showAuth, setShowAuth] = useState(false);
+        const [authMode, setAuthMode] = useState('login'); // 'login' or 'register'
+        const [authForm, setAuthForm] = useState({ email: '', password: '', confirmPassword: '' });
+        const [isSyncing, setIsSyncing] = useState(false);
+
         // Core state
         const [tasks, setTasks] = useLocalStorage("lifexp.tasks", []);
         const [projects, setProjects] = useLocalStorage("lifexp.projects", []);
@@ -110,6 +310,107 @@
           const el = document.documentElement;
           if (theme === "dark") el.classList.add("dark"); else el.classList.remove("dark");
         }, [theme]);
+
+        // Authentication state listener
+        useEffect(() => {
+          if (window.firebaseAuthMethods) {
+            const unsubscribe = window.firebaseAuthMethods.onAuthStateChanged(window.firebaseAuth, (user) => {
+              setUser(user);
+              cloudBackup.user = user;
+              if (user) {
+                // Auto-sync when user logs in
+                syncWithCloud();
+              }
+            });
+            return () => unsubscribe();
+          }
+        }, []);
+
+        // Sync with cloud
+        const syncWithCloud = async () => {
+          if (!cloudBackup.isAuthenticated()) return;
+          
+          setIsSyncing(true);
+          try {
+            const currentData = {
+              tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme
+            };
+            
+            const syncedData = await cloudBackup.syncData(currentData);
+            
+            // Update local state with synced data
+            if (syncedData.tasks) setTasks(syncedData.tasks);
+            if (syncedData.projects) setProjects(syncedData.projects);
+            if (syncedData.xp !== undefined) setXp(syncedData.xp);
+            if (syncedData.skill) setSkill(syncedData.skill);
+            if (syncedData.lastLevel !== undefined) setLastLevel(syncedData.lastLevel);
+            if (syncedData.milestones) setMilestones(syncedData.milestones);
+            if (syncedData.dateInfo) setDateInfo(syncedData.dateInfo);
+            if (syncedData.log) setLog(syncedData.log);
+            if (syncedData.settings) setSettings(syncedData.settings);
+            if (syncedData.theme) setTheme(syncedData.theme);
+            
+            pushAlert("Data synced with cloud ✓");
+          } catch (error) {
+            pushAlert("Sync failed - using local data", "error");
+          } finally {
+            setIsSyncing(false);
+          }
+        };
+
+        // Auto-save to cloud when data changes
+        useEffect(() => {
+          if (cloudBackup.isAuthenticated() && !isSyncing) {
+            const timeoutId = setTimeout(() => {
+              const currentData = {
+                tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme
+              };
+              cloudBackup.syncData(currentData);
+            }, 2000); // Debounce for 2 seconds
+            
+            return () => clearTimeout(timeoutId);
+          }
+        }, [tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme]);
+
+        // Authentication functions
+        const handleAuth = async (e) => {
+          e.preventDefault();
+          if (!window.firebaseAuthMethods) {
+            pushAlert("Firebase not loaded - check configuration", "error");
+            return;
+          }
+
+          try {
+            if (authMode === 'register') {
+              if (authForm.password !== authForm.confirmPassword) {
+                pushAlert("Passwords don't match", "error");
+                return;
+              }
+              await window.firebaseAuthMethods.createUserWithEmailAndPassword(
+                window.firebaseAuth, authForm.email, authForm.password
+              );
+              pushAlert("Account created successfully!");
+            } else {
+              await window.firebaseAuthMethods.signInWithEmailAndPassword(
+                window.firebaseAuth, authForm.email, authForm.password
+              );
+              pushAlert("Signed in successfully!");
+            }
+            setShowAuth(false);
+            setAuthForm({ email: '', password: '', confirmPassword: '' });
+          } catch (error) {
+            pushAlert(error.message, "error");
+          }
+        };
+
+        const handleSignOut = async () => {
+          try {
+            await window.firebaseAuthMethods.signOut(window.firebaseAuth);
+            pushAlert("Signed out successfully");
+          } catch (error) {
+            pushAlert("Sign out failed", "error");
+          }
+        };
 
         // Migrations
         useEffect(()=>{ if (!skill.upgrades) setSkill({ points: skill.points||0, upgrades: {} }); }, []);
@@ -597,9 +898,32 @@
               <header className="mb-6 flex items-center justify-between">
                 <div>
                   <h1 className="text-3xl font-bold">LifeXP</h1>
-                  <p className="text-sm text-neutral-400">Level up by completing tasks, projects, and focused sessions.</p>
+                  <p className="text-sm text-neutral-400">
+                    Level up by completing tasks, projects, and focused sessions.
+                    {user && (
+                      <span className="ml-2 text-emerald-400">
+                        • Synced as {user.email}
+                        {isSyncing && " • Syncing..."}
+                      </span>
+                    )}
+                  </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  {user ? (
+                    <>
+                      <button onClick={syncWithCloud} disabled={isSyncing} 
+                        className="px-3 py-2 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm shadow disabled:opacity-50">
+                        {isSyncing ? "Syncing..." : "Sync Now"}
+                      </button>
+                      <button onClick={handleSignOut} className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow">
+                        Sign Out
+                      </button>
+                    </>
+                  ) : (
+                    <button onClick={()=> setShowAuth(true)} className="px-3 py-2 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm shadow">
+                      Sign In / Register
+                    </button>
+                  )}
                   <button onClick={()=> setShowSettings(s=>!s)} className="px-3 py-2 rounded-2xl bg-neutral-800 hover:bg-neutral-700 text-neutral-100 text-sm shadow">
                     Settings
                   </button>
@@ -614,6 +938,84 @@
                   <button onClick={resetAll} className="px-3 py-2 rounded-2xl bg-rose-900/60 hover:bg-rose-800 text-rose-100 text-sm shadow">Reset All</button>
                 </div>
               </header>
+
+              {/* Authentication Modal */}
+              {showAuth && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                  <div className="bg-neutral-900 rounded-2xl p-6 w-full max-w-md mx-4 border border-neutral-800">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">
+                        {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                      </h2>
+                      <button onClick={() => setShowAuth(false)} className="text-neutral-400 hover:text-neutral-200">
+                        ✕
+                      </button>
+                    </div>
+                    
+                    <form onSubmit={handleAuth} className="space-y-4">
+                      <div>
+                        <label className="text-sm text-neutral-400">Email</label>
+                        <input
+                          type="email"
+                          required
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 mt-1"
+                          value={authForm.email}
+                          onChange={(e) => setAuthForm({...authForm, email: e.target.value})}
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="text-sm text-neutral-400">Password</label>
+                        <input
+                          type="password"
+                          required
+                          className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 mt-1"
+                          value={authForm.password}
+                          onChange={(e) => setAuthForm({...authForm, password: e.target.value})}
+                        />
+                      </div>
+                      
+                      {authMode === 'register' && (
+                        <div>
+                          <label className="text-sm text-neutral-400">Confirm Password</label>
+                          <input
+                            type="password"
+                            required
+                            className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 mt-1"
+                            value={authForm.confirmPassword}
+                            onChange={(e) => setAuthForm({...authForm, confirmPassword: e.target.value})}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="flex gap-2">
+                        <button
+                          type="submit"
+                          className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold"
+                        >
+                          {authMode === 'login' ? 'Sign In' : 'Create Account'}
+                        </button>
+                      </div>
+                    </form>
+                    
+                    <div className="mt-4 text-center">
+                      <button
+                        onClick={() => setAuthMode(authMode === 'login' ? 'register' : 'login')}
+                        className="text-sm text-neutral-400 hover:text-neutral-200"
+                      >
+                        {authMode === 'login' 
+                          ? "Don't have an account? Register" 
+                          : "Already have an account? Sign In"
+                        }
+                      </button>
+                    </div>
+                    
+                    <div className="mt-4 text-xs text-neutral-500">
+                      Your data will be synced across all devices when signed in.
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Settings panel */}
               {showSettings && (
@@ -961,7 +1363,13 @@
                 </div>
               </div>
 
-              <div className="mt-8 text-xs text-neutral-500">All data stays in your browser (localStorage). Export/import available. You can add Supabase sync later to share across devices.</div>
+              <div className="mt-8 text-xs text-neutral-500">
+                {user ? (
+                  <>Data synced to cloud • Last sync: {cloudBackup.lastSyncTime ? cloudBackup.lastSyncTime.toLocaleString() : 'Never'} • Export/import available</>
+                ) : (
+                  <>Data stored locally • Sign in to sync across devices • Export/import available</>
+                )}
+              </div>
             </div>
           </div>
         );
