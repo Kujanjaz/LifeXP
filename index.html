@@ -101,11 +101,60 @@
         { level: 100, sp: 8, badge: "Grandmaster" },
       ];
 
+      // Achievement system - beyond level milestones
+      const ACHIEVEMENTS = [
+        { id: "first_task", name: "Getting Started", desc: "Complete your first task", condition: (data) => data.tasksCompleted >= 1, icon: "🎯" },
+        { id: "streak_7", name: "Consistent", desc: "7-day task streak", condition: (data) => data.maxStreak >= 7, icon: "🔥" },
+        { id: "streak_30", name: "Unstoppable", desc: "30-day task streak", condition: (data) => data.maxStreak >= 30, icon: "⚡" },
+        { id: "focus_master", name: "Focus Master", desc: "100 hours of focus sessions", condition: (data) => data.totalFocusHours >= 100, icon: "🧘" },
+        { id: "project_finisher", name: "Project Finisher", desc: "Complete 10 projects", condition: (data) => data.projectsCompleted >= 10, icon: "🏆" },
+        { id: "early_bird", name: "Early Bird", desc: "Complete 50 tasks before 9 AM", condition: (data) => data.earlyTasks >= 50, icon: "🌅" },
+        { id: "night_owl", name: "Night Owl", desc: "Complete 50 tasks after 10 PM", condition: (data) => data.nightTasks >= 50, icon: "🦉" },
+        { id: "efficiency_expert", name: "Efficiency Expert", desc: "Complete 100 tasks under estimated time", condition: (data) => data.efficientTasks >= 100, icon: "⚡" },
+        { id: "dedication", name: "Dedication", desc: "Log activity for 100 consecutive days", condition: (data) => data.consecutiveDays >= 100, icon: "💪" },
+        { id: "xp_master", name: "XP Master", desc: "Earn 10,000 XP in a single day", condition: (data) => data.maxDailyXP >= 10000, icon: "💎" },
+      ];
+
       const SKILL_TREE = {
         focus: { key: "focus", name: "Focus", desc: "Tasks XP +2%/lvl (max +50%). Passive rate +1%/lvl (max +20%).", max: 25, cost: lvl => 1 + Math.floor(lvl/2) },
         momentum: { key: "momentum", name: "Momentum", desc: "Raise streak bonus cap +0.05/lvl (max +0.5).", max: 10, cost: lvl => 2 + Math.floor(lvl/2) },
         scholar: { key: "scholar", name: "Scholar", desc: "Project reward XP +3%/lvl (max +60%).", max: 20, cost: lvl => 1 + Math.floor(lvl/2) },
         efficiency: { key: "efficiency", name: "Efficiency", desc: "+1 base XP to tasks per lvl (max +10).", max: 10, cost: lvl => 1 + lvl },
+      };
+
+      // Auto XP Calculation System
+      const XP_MATRIX = {
+        'CS1010E': { 
+          'Practice': 20, 'Assignment': 50, 'Exam Prep': 80, 'Project': 100, 'Lecture': 15, 'Tutorial': 25
+        },
+        'MA1301': { 
+          'Exercise': 15, 'Problem Set': 40, 'Quiz Prep': 60, 'Test': 100, 'Lecture': 12, 'Tutorial': 20
+        },
+        'General': { 
+          'Quick Task': 10, 'Medium Task': 25, 'Long Task': 50, 'Project': 75, 'Study': 20, 'Review': 15
+        },
+        'Training': { 
+          'Workout': 30, 'Cardio': 25, 'Strength': 35, 'Flexibility': 15, 'Sports': 40
+        },
+        'Language': { 
+          'Vocabulary': 10, 'Grammar': 15, 'Conversation': 25, 'Reading': 20, 'Writing': 30
+        }
+      };
+
+      const DIFFICULTY_MULTIPLIERS = {
+        'Easy': 0.7,
+        'Medium': 1.0,
+        'Hard': 1.5,
+        'Expert': 2.0
+      };
+
+      const TIME_MULTIPLIERS = {
+        5: 0.5,    // 5 min = 0.5x
+        15: 0.8,   // 15 min = 0.8x
+        30: 1.0,   // 30 min = 1.0x
+        60: 1.3,   // 1 hour = 1.3x
+        120: 1.6,  // 2 hours = 1.6x
+        240: 2.0   // 4+ hours = 2.0x
       };
 
       // Passive Focus rates (XP/min) + block bonus per 25 min
@@ -289,6 +338,13 @@
         const [skill, setSkill] = useLocalStorage("lifexp.skill", { points: 0, upgrades: {} });
         const [lastLevel, setLastLevel] = useLocalStorage("lifexp.lastLevel", 0);
         const [milestones, setMilestones] = useLocalStorage("lifexp.milestones", { claimed: [] });
+        const [achievements, setAchievements] = useLocalStorage("lifexp.achievements", { unlocked: [] });
+        const [xpLearning, setXpLearning] = useLocalStorage("lifexp.xpLearning", { 
+          userAdjustments: {}, // Track user's manual XP adjustments
+          categoryPatterns: {}, // Learn category-specific patterns
+          difficultyPatterns: {}, // Learn difficulty patterns
+          timePatterns: {} // Learn time-based patterns
+        });
         const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
@@ -333,7 +389,7 @@
           setIsSyncing(true);
           try {
             const currentData = {
-              tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme
+              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme
             };
             
             const syncedData = await cloudBackup.syncData(currentData);
@@ -345,6 +401,8 @@
             if (syncedData.skill) setSkill(syncedData.skill);
             if (syncedData.lastLevel !== undefined) setLastLevel(syncedData.lastLevel);
             if (syncedData.milestones) setMilestones(syncedData.milestones);
+            if (syncedData.achievements) setAchievements(syncedData.achievements);
+            if (syncedData.xpLearning) setXpLearning(syncedData.xpLearning);
             if (syncedData.dateInfo) setDateInfo(syncedData.dateInfo);
             if (syncedData.log) setLog(syncedData.log);
             if (syncedData.settings) setSettings(syncedData.settings);
@@ -363,14 +421,14 @@
           if (cloudBackup.isAuthenticated() && !isSyncing) {
             const timeoutId = setTimeout(() => {
               const currentData = {
-                tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme
+                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme
               };
               cloudBackup.syncData(currentData);
             }, 2000); // Debounce for 2 seconds
             
             return () => clearTimeout(timeoutId);
           }
-        }, [tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme]);
+        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme]);
 
         // Authentication functions
         const handleAuth = async (e) => {
@@ -435,23 +493,29 @@
           }
         }, []);
 
-        // Levels
+        // Levels (optimized with useMemo)
         const level = useMemo(()=> levelFromTotalXp(xp), [xp]);
-        const currentLevelFloor = totalXpForLevel(level);
-        const nextLevelFloor = totalXpForLevel(level+1);
-        const progress = Math.min(1, (xp - currentLevelFloor) / (nextLevelFloor - currentLevelFloor));
+        const currentLevelFloor = useMemo(()=> totalXpForLevel(level), [level]);
+        const nextLevelFloor = useMemo(()=> totalXpForLevel(level+1), [level]);
+        const progress = useMemo(()=> Math.min(1, (xp - currentLevelFloor) / (nextLevelFloor - currentLevelFloor)), [xp, currentLevelFloor, nextLevelFloor]);
 
-        // Skill mods
-        const U = skill.upgrades || {};
-        const focusL = U.focus || 0;
-        const momentumL = U.momentum || 0;
-        const scholarL = U.scholar || 0;
-        const efficiencyL = U.efficiency || 0;
-        const tasksMult = 1 + Math.min(focusL * 0.02, 0.50);
-        const passiveMult = 1 + Math.min(focusL * 0.01, 0.20);
-        const projectMult = 1 + Math.min(scholarL * 0.03, 0.60);
-        const baseFlat = Math.min(efficiencyL * 1, 10);
-        const streakCap = 2 + Math.min(momentumL * 0.05, 0.5);
+        // Skill mods (optimized with useMemo)
+        const skillMods = useMemo(() => {
+          const U = skill.upgrades || {};
+          const focusL = U.focus || 0;
+          const momentumL = U.momentum || 0;
+          const scholarL = U.scholar || 0;
+          const efficiencyL = U.efficiency || 0;
+          return {
+            tasksMult: 1 + Math.min(focusL * 0.02, 0.50),
+            passiveMult: 1 + Math.min(focusL * 0.01, 0.20),
+            projectMult: 1 + Math.min(scholarL * 0.03, 0.60),
+            baseFlat: Math.min(efficiencyL * 1, 10),
+            streakCap: 2 + Math.min(momentumL * 0.05, 0.5)
+          };
+        }, [skill.upgrades]);
+        
+        const { tasksMult, passiveMult, projectMult, baseFlat, streakCap } = skillMods;
 
         // Level-up handling (SP + milestones)
         useEffect(()=>{
@@ -490,21 +554,236 @@
         const todayTotal = todayPassiveTotal + todayActiveTotal;
         const passiveRatio = todayTotal>0 ? todayPassiveTotal/todayTotal : 0;
 
-        // Last 7 days health metrics
+        // Last 7 days health metrics (optimized with useMemo)
         const lastNDates = (n) => {
           const dates=[]; const d=new Date();
           for (let i=0; i<n; i++){ const di=new Date(d); di.setDate(di.getDate()-i); dates.push(di.toISOString().slice(0,10)); }
           return dates.reverse();
         };
-        const weekDays = lastNDates(7);
-        const logsByDate = (d) => log.filter(e=> e.date===d);
-        const weekProjectSteps = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="project_step").length, 0);
-        const weekPassive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="passive"), 0);
-        const weekActive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="task" || e.type==="project"), 0);
-        const weekTotal = weekPassive + weekActive;
-        const weekPassiveRatio = weekTotal>0 ? weekPassive/weekTotal : 0;
-        const weekTasksCount = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="task").length, 0);
-        const weekSPSpent = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="sp_spend"), 0);
+        
+        const weekMetrics = useMemo(() => {
+          const weekDays = lastNDates(7);
+          const logsByDate = (d) => log.filter(e=> e.date===d);
+          const weekProjectSteps = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="project_step").length, 0);
+          const weekPassive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="passive"), 0);
+          const weekActive = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="task" || e.type==="project"), 0);
+          const weekTotal = weekPassive + weekActive;
+          const weekPassiveRatio = weekTotal>0 ? weekPassive/weekTotal : 0;
+          const weekTasksCount = weekDays.reduce((s,d)=> s + logsByDate(d).filter(e=> e.type==="task").length, 0);
+          const weekSPSpent = weekDays.reduce((s,d)=> s + sumBy(logsByDate(d), e=> e.type==="sp_spend"), 0);
+          return { weekProjectSteps, weekPassive, weekActive, weekTotal, weekPassiveRatio, weekTasksCount, weekSPSpent };
+        }, [log]);
+        
+        const { weekProjectSteps, weekPassive, weekActive, weekTotal, weekPassiveRatio, weekTasksCount, weekSPSpent } = weekMetrics;
+
+        // Productivity insights (optimized with useMemo)
+        const productivityInsights = useMemo(() => {
+          const taskLogs = log.filter(e => e.type === "task");
+          const focusLogs = log.filter(e => e.type === "passive");
+          const projectLogs = log.filter(e => e.type === "project");
+          
+          // Best times to work (hourly analysis)
+          const hourlyStats = {};
+          taskLogs.forEach(log => {
+            const hour = new Date(log.ts).getHours();
+            if (!hourlyStats[hour]) hourlyStats[hour] = { count: 0, totalXP: 0 };
+            hourlyStats[hour].count++;
+            hourlyStats[hour].totalXP += log.amount || 0;
+          });
+          
+          const bestHours = Object.entries(hourlyStats)
+            .map(([hour, stats]) => ({ hour: parseInt(hour), ...stats, avgXP: stats.totalXP / stats.count }))
+            .sort((a, b) => b.avgXP - a.avgXP)
+            .slice(0, 3);
+          
+          // Task completion patterns
+          const categoryStats = {};
+          taskLogs.forEach(log => {
+            const cat = log.meta?.category || "General";
+            if (!categoryStats[cat]) categoryStats[cat] = { count: 0, totalXP: 0, avgTime: 0 };
+            categoryStats[cat].count++;
+            categoryStats[cat].totalXP += log.amount || 0;
+            if (log.meta?.actualMin) {
+              categoryStats[cat].avgTime = (categoryStats[cat].avgTime * (categoryStats[cat].count - 1) + log.meta.actualMin) / categoryStats[cat].count;
+            }
+          });
+          
+          const topCategories = Object.entries(categoryStats)
+            .map(([cat, stats]) => ({ category: cat, ...stats, avgXP: stats.totalXP / stats.count }))
+            .sort((a, b) => b.avgXP - a.avgXP)
+            .slice(0, 3);
+          
+          // Daily patterns
+          const dailyStats = {};
+          const last30Days = lastNDates(30);
+          last30Days.forEach(date => {
+            const dayLogs = log.filter(e => e.date === date);
+            const dayOfWeek = new Date(date).getDay();
+            if (!dailyStats[dayOfWeek]) dailyStats[dayOfWeek] = { count: 0, totalXP: 0 };
+            dailyStats[dayOfWeek].count += dayLogs.filter(e => e.type === "task").length;
+            dailyStats[dayOfWeek].totalXP += sumBy(dayLogs, e => e.type === "task" || e.type === "project");
+          });
+          
+          const bestDays = Object.entries(dailyStats)
+            .map(([day, stats]) => ({ 
+              day: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][parseInt(day)], 
+              ...stats, 
+              avgXP: stats.totalXP / Math.max(stats.count, 1) 
+            }))
+            .sort((a, b) => b.avgXP - a.avgXP)
+            .slice(0, 3);
+          
+          return { bestHours, topCategories, bestDays };
+        }, [log]);
+        
+        // Achievement calculations (optimized with useMemo)
+        const achievementData = useMemo(() => {
+          const taskLogs = log.filter(e => e.type === "task");
+          const focusLogs = log.filter(e => e.type === "passive");
+          const projectLogs = log.filter(e => e.type === "project");
+          
+          // Calculate achievement metrics
+          const tasksCompleted = taskLogs.length;
+          const projectsCompleted = projectLogs.length;
+          const totalFocusHours = focusLogs.reduce((sum, log) => sum + (log.meta?.minutes || 0) / 60, 0);
+          
+          // Max streak calculation
+          let maxStreak = 0;
+          let currentStreak = 0;
+          const last30Days = lastNDates(30);
+          last30Days.forEach(date => {
+            const hasTask = taskLogs.some(log => log.date === date);
+            if (hasTask) {
+              currentStreak++;
+              maxStreak = Math.max(maxStreak, currentStreak);
+            } else {
+              currentStreak = 0;
+            }
+          });
+          
+          // Time-based achievements
+          const earlyTasks = taskLogs.filter(log => new Date(log.ts).getHours() < 9).length;
+          const nightTasks = taskLogs.filter(log => new Date(log.ts).getHours() >= 22).length;
+          const efficientTasks = taskLogs.filter(log => {
+            const actual = log.meta?.actualMin;
+            const estimate = log.meta?.estimateMin;
+            return actual && estimate && actual <= estimate;
+          }).length;
+          
+          // Daily XP tracking
+          const dailyXP = {};
+          log.forEach(log => {
+            if (log.type === "task" || log.type === "project") {
+              dailyXP[log.date] = (dailyXP[log.date] || 0) + (log.amount || 0);
+            }
+          });
+          const maxDailyXP = Math.max(...Object.values(dailyXP), 0);
+          
+          // Consecutive days
+          let consecutiveDays = 0;
+          const sortedDates = Object.keys(dailyXP).sort();
+          for (let i = sortedDates.length - 1; i >= 0; i--) {
+            const currentDate = new Date(sortedDates[i]);
+            const prevDate = i > 0 ? new Date(sortedDates[i-1]) : null;
+            if (prevDate && (currentDate - prevDate) / (1000 * 60 * 60 * 24) === 1) {
+              consecutiveDays++;
+            } else {
+              break;
+            }
+          }
+          
+          return {
+            tasksCompleted,
+            projectsCompleted,
+            totalFocusHours,
+            maxStreak,
+            earlyTasks,
+            nightTasks,
+            efficientTasks,
+            maxDailyXP,
+            consecutiveDays
+          };
+        }, [log]);
+        
+        // Check and unlock achievements
+        useEffect(() => {
+          const unlocked = achievements.unlocked || [];
+          const newAchievements = ACHIEVEMENTS.filter(achievement => 
+            !unlocked.includes(achievement.id) && achievement.condition(achievementData)
+          );
+          
+          if (newAchievements.length > 0) {
+            setAchievements(prev => ({ 
+              unlocked: [...(prev.unlocked || []), ...newAchievements.map(a => a.id)] 
+            }));
+            newAchievements.forEach(achievement => {
+              pushAlert(`Achievement Unlocked: ${achievement.icon} ${achievement.name} - ${achievement.desc}`);
+            });
+          }
+        }, [achievementData, achievements.unlocked]);
+        
+        // Auto XP Calculation Functions
+        const suggestXP = (title, category, taskType, difficulty, estimatedTime) => {
+          // Get base XP from matrix
+          const categoryMatrix = XP_MATRIX[category] || XP_MATRIX['General'];
+          const baseXP = categoryMatrix[taskType] || categoryMatrix['Medium Task'] || 25;
+          
+          // Apply difficulty multiplier
+          const difficultyMult = DIFFICULTY_MULTIPLIERS[difficulty] || 1.0;
+          
+          // Apply time multiplier
+          let timeMult = 1.0;
+          if (estimatedTime) {
+            for (const [time, mult] of Object.entries(TIME_MULTIPLIERS)) {
+              if (estimatedTime >= parseInt(time)) timeMult = mult;
+            }
+          }
+          
+          // Apply learning adjustments
+          const learningKey = `${category}-${taskType}-${difficulty}`;
+          const userAdjustment = xpLearning.userAdjustments[learningKey] || 1.0;
+          
+          // Calculate final XP
+          let suggestedXP = Math.round(baseXP * difficultyMult * timeMult * userAdjustment);
+          
+          // Apply keyword detection
+          const keywords = title.toLowerCase();
+          if (keywords.includes('exam') || keywords.includes('test') || keywords.includes('final')) {
+            suggestedXP = Math.round(suggestedXP * 1.3);
+          }
+          if (keywords.includes('project') || keywords.includes('assignment') || keywords.includes('essay')) {
+            suggestedXP = Math.round(suggestedXP * 1.2);
+          }
+          if (keywords.includes('review') || keywords.includes('practice') || keywords.includes('homework')) {
+            suggestedXP = Math.round(suggestedXP * 0.9);
+          }
+          
+          return Math.max(5, suggestedXP); // Minimum 5 XP
+        };
+
+        const learnFromUserAdjustment = (category, taskType, difficulty, suggestedXP, actualXP) => {
+          if (suggestedXP === actualXP) return; // No learning needed
+          
+          const learningKey = `${category}-${taskType}-${difficulty}`;
+          const adjustment = actualXP / suggestedXP;
+          
+          setXpLearning(prev => ({
+            ...prev,
+            userAdjustments: {
+              ...prev.userAdjustments,
+              [learningKey]: adjustment
+            }
+          }));
+        };
+
+        const getTaskTypeSuggestions = (category) => {
+          const categoryMatrix = XP_MATRIX[category] || XP_MATRIX['General'];
+          return Object.keys(categoryMatrix);
+        };
+
+        const getDifficultySuggestions = () => {
+          return Object.keys(DIFFICULTY_MULTIPLIERS);
+        };
 
         function logEntry(entry){
           setLog(L => [{ id: uid(), ts: nowTs(), date: todayISO(), ...entry }, ...L]);
@@ -526,19 +805,55 @@
           : { total: settings.staticTotal, perCat: settings.staticPerCat };
 
         // ================== Task creation & completion ==================
-        const [form, setForm] = useState({ title:"", category:"General", baseXP: 30, estimateMin: 30 });
+        const [form, setForm] = useState({ 
+          title:"", 
+          category:"General", 
+          taskType:"Medium Task", 
+          difficulty:"Medium", 
+          baseXP: 30, 
+          estimateMin: 30,
+          suggestedXP: 30,
+          showAdvanced: false
+        });
+
+        // Auto-suggest XP when form changes
+        useEffect(() => {
+          if (form.title || form.category || form.taskType || form.difficulty || form.estimateMin) {
+            const suggested = suggestXP(form.title, form.category, form.taskType, form.difficulty, form.estimateMin);
+            setForm(prev => ({ ...prev, suggestedXP: suggested }));
+          }
+        }, [form.title, form.category, form.taskType, form.difficulty, form.estimateMin]);
 
         function addTask(e){
           e.preventDefault();
           const title = form.title.trim(); if (!title) return;
           const baseXP = Math.max(1, Number(form.baseXP)||10);
           const estimateMin = Math.max(0, Number(form.estimateMin)||0);
+          
+          // Learn from user's XP adjustment
+          const suggestedXP = suggestXP(title, form.category, form.taskType, form.difficulty, estimateMin);
+          if (baseXP !== suggestedXP) {
+            learnFromUserAdjustment(form.category, form.taskType, form.difficulty, suggestedXP, baseXP);
+          }
+          
           setTasks(t => [...t, {
-            id: uid(), title, category: form.category||"General",
-            baseXP, estimateMin, createdAt: todayISO(),
-            streak: 0, lastCompleted: null, timesCompletedToday: 0
+            id: uid(), 
+            title, 
+            category: form.category||"General",
+            taskType: form.taskType,
+            difficulty: form.difficulty,
+            baseXP, 
+            estimateMin, 
+            createdAt: todayISO(),
+            streak: 0, 
+            lastCompleted: null, 
+            timesCompletedToday: 0
           }]);
-          setForm(f => ({ ...f, title:"" }));
+          setForm(f => ({ 
+            ...f, 
+            title:"", 
+            suggestedXP: suggestXP("", f.category, f.taskType, f.difficulty, f.estimateMin)
+          }));
         }
 
         // Efficiency helpers from logs
@@ -1185,18 +1500,69 @@
               </div>
 
               {/* Add Task */}
-              <form onSubmit={addTask} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6 grid grid-cols-1 md:grid-cols-6 gap-3">
-                <input className="md:col-span-2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
-                  placeholder="Task title (e.g., CS1010E daily practice)"
-                  value={form.title} onChange={e=> setForm({...form, title:e.target.value})} />
-                <input className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
-                  placeholder="Category (e.g., CS1010E / MA1301 / Training)"
-                  value={form.category} onChange={e=> setForm({...form, category:e.target.value})} />
-                <input type="number" min="1" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
-                  placeholder="Base XP" value={form.baseXP} onChange={e=> setForm({...form, baseXP:e.target.value})} />
-                <input type="number" min="0" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
-                  placeholder="Estimate (min, optional)" value={form.estimateMin} onChange={e=> setForm({...form, estimateMin:e.target.value})} />
-                <button className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">Add Task</button>
+              <form onSubmit={addTask} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                  <input className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    placeholder="Task title (e.g., CS1010E daily practice)"
+                    value={form.title} onChange={e=> setForm({...form, title:e.target.value})} />
+                  <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    value={form.category} onChange={e=> setForm({...form, category:e.target.value})}>
+                    <option value="General">General</option>
+                    <option value="CS1010E">CS1010E</option>
+                    <option value="MA1301">MA1301</option>
+                    <option value="Training">Training</option>
+                    <option value="Language">Language</option>
+                  </select>
+                  <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    value={form.taskType} onChange={e=> setForm({...form, taskType:e.target.value})}>
+                    {getTaskTypeSuggestions(form.category).map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  <select className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    value={form.difficulty} onChange={e=> setForm({...form, difficulty:e.target.value})}>
+                    {getDifficultySuggestions().map(diff => (
+                      <option key={diff} value={diff}>{diff}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                  <div className="relative">
+                    <input type="number" min="1" className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2 pr-20"
+                      placeholder="Base XP" value={form.baseXP} onChange={e=> setForm({...form, baseXP:e.target.value})} />
+                    <div className="absolute right-2 top-1/2 transform -translate-y-1/2 text-xs text-neutral-400">
+                      Suggested: {form.suggestedXP}
+                    </div>
+                  </div>
+                  <input type="number" min="0" className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    placeholder="Estimate (min)" value={form.estimateMin} onChange={e=> setForm({...form, estimateMin:e.target.value})} />
+                  <button type="button" onClick={()=> setForm({...form, baseXP: form.suggestedXP})}
+                    className="bg-blue-600 hover:bg-blue-500 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow">
+                    Use Suggested
+                  </button>
+                  <button type="button" onClick={()=> setForm({...form, showAdvanced: !form.showAdvanced})}
+                    className="bg-neutral-700 hover:bg-neutral-600 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow">
+                    {form.showAdvanced ? 'Hide' : 'Show'} Advanced
+                  </button>
+                </div>
+                
+                {form.showAdvanced && (
+                  <div className="mb-4 p-3 bg-neutral-800 rounded-xl">
+                    <div className="text-sm text-neutral-400 mb-2">XP Calculation Breakdown:</div>
+                    <div className="text-xs text-neutral-500 space-y-1">
+                      <div>Base: {XP_MATRIX[form.category]?.[form.taskType] || 25} XP</div>
+                      <div>Difficulty: ×{DIFFICULTY_MULTIPLIERS[form.difficulty] || 1.0}</div>
+                      <div>Time: ×{form.estimateMin ? Object.entries(TIME_MULTIPLIERS).find(([time]) => form.estimateMin >= parseInt(time))?.[1] || 1.0 : 1.0}</div>
+                      <div>Learning: ×{xpLearning.userAdjustments[`${form.category}-${form.taskType}-${form.difficulty}`] || 1.0}</div>
+                      <div className="font-semibold text-emerald-400">Final: {form.suggestedXP} XP</div>
+                    </div>
+                  </div>
+                )}
+                
+                <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">
+                  Add Task
+                </button>
               </form>
 
               {/* Tasks */}
@@ -1210,11 +1576,26 @@
                     return (
                       <div key={t.id} className="p-4 flex items-center gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <div className="text-base font-semibold truncate">{t.title}</div>
                             <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
                               {t.category}
                             </span>
+                            {t.taskType && (
+                              <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-200 border border-blue-800">
+                                {t.taskType}
+                              </span>
+                            )}
+                            {t.difficulty && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                                t.difficulty === 'Easy' ? 'bg-green-900/40 text-green-200 border-green-800' :
+                                t.difficulty === 'Medium' ? 'bg-yellow-900/40 text-yellow-200 border-yellow-800' :
+                                t.difficulty === 'Hard' ? 'bg-orange-900/40 text-orange-200 border-orange-800' :
+                                'bg-red-900/40 text-red-200 border-red-800'
+                              }`}>
+                                {t.difficulty}
+                              </span>
+                            )}
                           </div>
                           <div className="text-xs text-neutral-400 mt-1">
                             Base {t.baseXP} XP • Est {t.estimateMin||0} min • Streak {streakText} • Last: {t.lastCompleted || "—"}
@@ -1330,6 +1711,89 @@
                     );
                   })
                 )}
+              </div>
+
+              {/* Achievements */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <h2 className="text-xl font-semibold mb-3">Achievements</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {ACHIEVEMENTS.map(achievement => {
+                    const isUnlocked = (achievements.unlocked || []).includes(achievement.id);
+                    const progress = achievement.condition(achievementData) ? 100 : 0;
+                    return (
+                      <div key={achievement.id} className={`p-4 rounded-xl border ${isUnlocked ? 'bg-emerald-950/40 border-emerald-800' : 'bg-neutral-800 border-neutral-700'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className="text-2xl">{achievement.icon}</div>
+                          <div className="flex-1">
+                            <div className={`font-semibold ${isUnlocked ? 'text-emerald-200' : 'text-neutral-300'}`}>
+                              {achievement.name}
+                            </div>
+                            <div className="text-sm text-neutral-400">{achievement.desc}</div>
+                            {!isUnlocked && (
+                              <div className="mt-2 w-full bg-neutral-700 rounded-full h-2">
+                                <div className="bg-neutral-500 h-2 rounded-full" style={{ width: `${progress}%` }} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Productivity Insights */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <h2 className="text-xl font-semibold mb-3">Productivity Insights</h2>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-emerald-400">Best Times to Work</h3>
+                    {productivityInsights.bestHours.length > 0 ? (
+                      <div className="space-y-2">
+                        {productivityInsights.bestHours.map((stat, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 bg-neutral-800 rounded-lg">
+                            <span className="text-sm">{stat.hour}:00 - {stat.hour + 1}:00</span>
+                            <span className="text-xs text-neutral-400">{stat.count} tasks • {stat.avgXP.toFixed(0)} avg XP</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-neutral-500">Complete more tasks to see patterns</div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-indigo-400">Top Categories</h3>
+                    {productivityInsights.topCategories.length > 0 ? (
+                      <div className="space-y-2">
+                        {productivityInsights.topCategories.map((stat, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 bg-neutral-800 rounded-lg">
+                            <span className="text-sm">{stat.category}</span>
+                            <span className="text-xs text-neutral-400">{stat.count} tasks • {stat.avgXP.toFixed(0)} avg XP</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-neutral-500">Complete more tasks to see patterns</div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-violet-400">Best Days</h3>
+                    {productivityInsights.bestDays.length > 0 ? (
+                      <div className="space-y-2">
+                        {productivityInsights.bestDays.map((stat, i) => (
+                          <div key={i} className="flex justify-between items-center p-2 bg-neutral-800 rounded-lg">
+                            <span className="text-sm">{stat.day}</span>
+                            <span className="text-xs text-neutral-400">{stat.count} tasks • {stat.avgXP.toFixed(0)} avg XP</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-sm text-neutral-500">Complete more tasks to see patterns</div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Weekly Health */}
