@@ -376,6 +376,397 @@
         }
       };
 
+      // ================== COMPREHENSIVE SKILL TREE SYSTEM ==================
+      
+      // Subject definitions with icons and colors
+      const SUBJECTS = {
+        math: { id: 'math', name: 'Math', icon: '📚', color: 'blue', baseXP: 0 },
+        programming: { id: 'programming', name: 'Programming', icon: '💻', color: 'green', baseXP: 0 },
+        economics: { id: 'economics', name: 'Economics', icon: '📊', color: 'purple', baseXP: 0 },
+        history: { id: 'history', name: 'History', icon: '📜', color: 'amber', baseXP: 0 }
+      };
+
+      // Complete skill tree structures
+      const SKILL_TREES = {
+        math: {
+          id: 'math',
+          name: 'Mathematics',
+          icon: '📚',
+          mainSkills: {
+            'pre_calculus': {
+              id: 'pre_calculus',
+              name: 'Pre-Calculus',
+              xpRequired: 0,
+              unlockRequirements: { tasksCompleted: 0 },
+              subSkills: {
+                'arithmetic_foundations': {
+                  id: 'arithmetic_foundations',
+                  name: 'Arithmetic Foundations',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 10,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'algebra_i': {
+                  id: 'algebra_i',
+                  name: 'Algebra I',
+                  xpRequired: 100,
+                  unlockRequirements: { tasksCompleted: 5, prerequisites: ['arithmetic_foundations'] },
+                  baseXP: 15,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'algebra_ii': {
+                  id: 'algebra_ii',
+                  name: 'Algebra II',
+                  xpRequired: 300,
+                  unlockRequirements: { tasksCompleted: 10, prerequisites: ['algebra_i'] },
+                  baseXP: 20,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'trigonometry': {
+                  id: 'trigonometry',
+                  name: 'Trigonometry',
+                  xpRequired: 500,
+                  unlockRequirements: { tasksCompleted: 15, prerequisites: ['algebra_ii'] },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            },
+            'calculus_sequence': {
+              id: 'calculus_sequence',
+              name: 'Calculus Sequence',
+              xpRequired: 800,
+              unlockRequirements: { tasksCompleted: 20, prerequisites: ['pre_calculus'] },
+              subSkills: {
+                'limits_continuity': {
+                  id: 'limits_continuity',
+                  name: 'Limits & Continuity',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 30,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'differential_calculus': {
+                  id: 'differential_calculus',
+                  name: 'Differential Calculus',
+                  xpRequired: 200,
+                  unlockRequirements: { tasksCompleted: 8, prerequisites: ['limits_continuity'] },
+                  baseXP: 35,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'integral_calculus': {
+                  id: 'integral_calculus',
+                  name: 'Integral Calculus',
+                  xpRequired: 400,
+                  unlockRequirements: { tasksCompleted: 12, prerequisites: ['differential_calculus'] },
+                  baseXP: 40,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            },
+            'linear_algebra': {
+              id: 'linear_algebra',
+              name: 'Linear Algebra',
+              xpRequired: 600,
+              unlockRequirements: { tasksCompleted: 25, prerequisites: ['pre_calculus'] },
+              subSkills: {
+                'vectors_matrices': {
+                  id: 'vectors_matrices',
+                  name: 'Vectors & Matrices',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'eigenvalues_eigenvectors': {
+                  id: 'eigenvalues_eigenvectors',
+                  name: 'Eigenvalues & Eigenvectors',
+                  xpRequired: 300,
+                  unlockRequirements: { tasksCompleted: 10, prerequisites: ['vectors_matrices'] },
+                  baseXP: 35,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            }
+          }
+        },
+        
+        programming: {
+          id: 'programming',
+          name: 'Programming & Computer Science',
+          icon: '💻',
+          mainSkills: {
+            'foundations': {
+              id: 'foundations',
+              name: 'Foundations',
+              xpRequired: 0,
+              unlockRequirements: { tasksCompleted: 0 },
+              subSkills: {
+                'computer_literacy': {
+                  id: 'computer_literacy',
+                  name: 'Computer Literacy',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 10,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'programming_fundamentals': {
+                  id: 'programming_fundamentals',
+                  name: 'Programming Fundamentals',
+                  xpRequired: 50,
+                  unlockRequirements: { tasksCompleted: 3, prerequisites: ['computer_literacy'] },
+                  baseXP: 15,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'data_structures': {
+                  id: 'data_structures',
+                  name: 'Data Structures',
+                  xpRequired: 200,
+                  unlockRequirements: { tasksCompleted: 8, prerequisites: ['programming_fundamentals'] },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'algorithms': {
+                  id: 'algorithms',
+                  name: 'Algorithms',
+                  xpRequired: 300,
+                  unlockRequirements: { tasksCompleted: 12, prerequisites: ['data_structures'] },
+                  baseXP: 30,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            },
+            'software_engineering': {
+              id: 'software_engineering',
+              name: 'Software Engineering',
+              xpRequired: 400,
+              unlockRequirements: { tasksCompleted: 15, prerequisites: ['foundations'] },
+              subSkills: {
+                'version_control': {
+                  id: 'version_control',
+                  name: 'Version Control',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 20,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'testing_debugging': {
+                  id: 'testing_debugging',
+                  name: 'Testing & Debugging',
+                  xpRequired: 100,
+                  unlockRequirements: { tasksCompleted: 5, prerequisites: ['version_control'] },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'databases': {
+                  id: 'databases',
+                  name: 'Databases',
+                  xpRequired: 200,
+                  unlockRequirements: { tasksCompleted: 8, prerequisites: ['testing_debugging'] },
+                  baseXP: 30,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            }
+          }
+        },
+
+        economics: {
+          id: 'economics',
+          name: 'Economics',
+          icon: '📊',
+          mainSkills: {
+            'microeconomics': {
+              id: 'microeconomics',
+              name: 'Microeconomics',
+              xpRequired: 0,
+              unlockRequirements: { tasksCompleted: 0 },
+              subSkills: {
+                'supply_demand': {
+                  id: 'supply_demand',
+                  name: 'Supply & Demand',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 15,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'consumer_theory': {
+                  id: 'consumer_theory',
+                  name: 'Consumer Theory',
+                  xpRequired: 100,
+                  unlockRequirements: { tasksCompleted: 5, prerequisites: ['supply_demand'] },
+                  baseXP: 20,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'producer_theory': {
+                  id: 'producer_theory',
+                  name: 'Producer Theory',
+                  xpRequired: 200,
+                  unlockRequirements: { tasksCompleted: 8, prerequisites: ['consumer_theory'] },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            },
+            'macroeconomics': {
+              id: 'macroeconomics',
+              name: 'Macroeconomics',
+              xpRequired: 300,
+              unlockRequirements: { tasksCompleted: 12, prerequisites: ['microeconomics'] },
+              subSkills: {
+                'gdp_measurement': {
+                  id: 'gdp_measurement',
+                  name: 'GDP & Measurement',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 20,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'fiscal_policy': {
+                  id: 'fiscal_policy',
+                  name: 'Fiscal Policy',
+                  xpRequired: 150,
+                  unlockRequirements: { tasksCompleted: 6, prerequisites: ['gdp_measurement'] },
+                  baseXP: 25,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            }
+          }
+        },
+
+        history: {
+          id: 'history',
+          name: 'History',
+          icon: '📜',
+          mainSkills: {
+            'historical_methods': {
+              id: 'historical_methods',
+              name: 'Historical Methods',
+              xpRequired: 0,
+              unlockRequirements: { tasksCompleted: 0 },
+              subSkills: {
+                'sourcing_corroboration': {
+                  id: 'sourcing_corroboration',
+                  name: 'Sourcing & Corroboration',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 15,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'historiography': {
+                  id: 'historiography',
+                  name: 'Historiography',
+                  xpRequired: 100,
+                  unlockRequirements: { tasksCompleted: 5, prerequisites: ['sourcing_corroboration'] },
+                  baseXP: 20,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            },
+            'ancient_history': {
+              id: 'ancient_history',
+              name: 'Ancient History',
+              xpRequired: 200,
+              unlockRequirements: { tasksCompleted: 8, prerequisites: ['historical_methods'] },
+              subSkills: {
+                'mesopotamia': {
+                  id: 'mesopotamia',
+                  name: 'Mesopotamia',
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0 },
+                  baseXP: 18,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                },
+                'ancient_greece': {
+                  id: 'ancient_greece',
+                  name: 'Ancient Greece',
+                  xpRequired: 150,
+                  unlockRequirements: { tasksCompleted: 6, prerequisites: ['mesopotamia'] },
+                  baseXP: 22,
+                  masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
+                }
+              }
+            }
+          }
+        }
+      };
+
+      // Dual XP System
+      const XP_SYSTEM = {
+        // Calculate subject level from XP
+        getSubjectLevel: (xp) => {
+          if (xp < 100) return 0;
+          if (xp < 300) return 1;
+          if (xp < 600) return 2;
+          if (xp < 1000) return 3;
+          if (xp < 1500) return 4;
+          if (xp < 2100) return 5;
+          if (xp < 2800) return 6;
+          if (xp < 3600) return 7;
+          if (xp < 4500) return 8;
+          if (xp < 5500) return 9;
+          return 10; // Max level for now
+        },
+
+        // Calculate mastery level from XP within a sub-skill
+        getMasteryLevel: (xp, maxXP = 1000) => {
+          const percentage = Math.min(xp / maxXP, 1);
+          if (percentage < 0.2) return 0; // Novice
+          if (percentage < 0.4) return 1; // Apprentice
+          if (percentage < 0.6) return 2; // Proficient
+          if (percentage < 0.8) return 3; // Advanced
+          return 4; // Expert
+        },
+
+        // Check if a skill is unlocked
+        isSkillUnlocked: (skill, userProgress) => {
+          const requirements = skill.unlockRequirements;
+          if (!requirements) return true;
+
+          // Check task completion requirements
+          if (requirements.tasksCompleted) {
+            const completedTasks = userProgress.tasksCompleted || 0;
+            if (completedTasks < requirements.tasksCompleted) return false;
+          }
+
+          // Check prerequisite skills
+          if (requirements.prerequisites) {
+            for (const prereqId of requirements.prerequisites) {
+              const prereqXP = userProgress.subSkills?.[prereqId]?.xp || 0;
+              if (prereqXP < 100) return false; // Minimum XP threshold
+            }
+          }
+
+          return true;
+        }
+      };
+
+      // Time-based XP calculation with efficiency bonuses
+      const calculateTaskXP = (subSkill, baseXP, estimatedTime, actualTime, difficulty = 'Medium') => {
+        // Base XP calculation
+        let finalXP = baseXP;
+
+        // Apply difficulty multiplier
+        const difficultyMultipliers = { 'Easy': 0.7, 'Medium': 1.0, 'Hard': 1.5, 'Expert': 2.0 };
+        finalXP *= difficultyMultipliers[difficulty] || 1.0;
+
+        // Apply time efficiency bonus
+        if (actualTime && estimatedTime && actualTime > 0) {
+          const efficiency = actualTime / estimatedTime;
+          const timeBonus = Math.max(0, (1 - efficiency) * 0.5); // Up to 50% bonus for finishing early
+          finalXP *= (1 + timeBonus);
+        }
+
+        // Apply sub-skill level bonus (higher level = more XP)
+        const subSkillLevel = XP_SYSTEM.getSubjectLevel(subSkill.xp || 0);
+        const levelBonus = 1 + (subSkillLevel * 0.05); // 5% per level
+        finalXP *= levelBonus;
+
+        return Math.round(finalXP);
+      };
+
       // ================== Storage Hook ==================
       function useLocalStorage(key, initialValue) {
         const [value, setValue] = useState(() => {
@@ -536,6 +927,303 @@
         }
       }
 
+      // ================== Tab Components ==================
+      
+      function SkillsTab({ activeSubject, setActiveSubject, subjectXP, subSkillProgress, setForm }) {
+        return (
+          <div className="space-y-6">
+            {/* Subject Selection */}
+            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+              <h2 className="text-xl font-semibold mb-4">Subject Skills</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                {Object.entries(SUBJECTS).map(([subjectId, subject]) => (
+                  <button
+                    key={subjectId}
+                    onClick={() => setActiveSubject(subjectId)}
+                    className={`p-4 rounded-xl border transition-all ${
+                      activeSubject === subjectId
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xl">{subject.icon}</span>
+                      <div className="font-semibold">{subject.name}</div>
+                    </div>
+                    <div className="text-sm opacity-75">
+                      Level {XP_SYSTEM.getSubjectLevel(subjectXP[subjectId] || 0)} • {subjectXP[subjectId] || 0} XP
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Skill Tree */}
+            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+              <h2 className="text-xl font-semibold mb-4">
+                {SUBJECTS[activeSubject]?.icon} {SUBJECTS[activeSubject]?.name} Skill Tree
+              </h2>
+              
+              <div className="space-y-6">
+                {SKILL_TREES[activeSubject] && Object.entries(SKILL_TREES[activeSubject].mainSkills).map(([mainSkillId, mainSkill]) => {
+                  const mainSkillXP = Object.keys(mainSkill.subSkills).reduce((total, subSkillId) => {
+                    return total + (subSkillProgress[subSkillId]?.xp || 0);
+                  }, 0);
+                  const isMainSkillUnlocked = XP_SYSTEM.isSkillUnlocked(mainSkill, { 
+                    tasksCompleted: log.filter(e => e.type === "task").length 
+                  });
+                  
+                  return (
+                    <div key={mainSkillId} className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                      <div className="flex items-center justify-between mb-4">
+                        <div>
+                          <h3 className="text-lg font-semibold">{mainSkill.name}</h3>
+                          <div className="text-sm text-neutral-400">{mainSkillXP} XP total</div>
+                        </div>
+                        <div className={`px-3 py-1 rounded-full text-sm ${
+                          isMainSkillUnlocked 
+                            ? 'bg-green-900/50 text-green-200 border border-green-800'
+                            : 'bg-neutral-700 text-neutral-400 border border-neutral-600'
+                        }`}>
+                          {isMainSkillUnlocked ? 'Unlocked' : 'Locked'}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => {
+                          const progress = subSkillProgress[subSkillId] || { xp: 0, tasksCompleted: 0 };
+                          const isUnlocked = XP_SYSTEM.isSkillUnlocked(subSkill, progress);
+                          const masteryLevel = XP_SYSTEM.getMasteryLevel(progress.xp);
+                          const masteryName = subSkill.masteryLevels[masteryLevel];
+                          
+                          return (
+                            <div
+                              key={subSkillId}
+                              className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                                isUnlocked
+                                  ? 'bg-neutral-700 border-neutral-600 hover:border-neutral-500'
+                                  : 'bg-neutral-900 border-neutral-800 opacity-50'
+                              }`}
+                              onClick={() => {
+                                if (isUnlocked) {
+                                  setForm(prev => ({
+                                    ...prev,
+                                    subject: activeSubject,
+                                    mainSkill: mainSkillId,
+                                    subSkill: subSkillId
+                                  }));
+                                  setActiveTab('tasks');
+                                }
+                              }}
+                            >
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-semibold text-sm">{subSkill.name}</div>
+                                <div className="text-xs text-neutral-400">{progress.xp} XP</div>
+                              </div>
+                              
+                              <div className="text-xs text-neutral-500 mb-2">
+                                {masteryName} • {progress.tasksCompleted} tasks
+                              </div>
+                              
+                              <div className="w-full bg-neutral-800 rounded-full h-2 mb-2">
+                                <div 
+                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                  style={{ width: `${Math.min(100, (progress.xp / 1000) * 100)}%` }}
+                                />
+                              </div>
+                              
+                              {!isUnlocked && (
+                                <div className="text-xs text-amber-400">
+                                  Requires: {subSkill.unlockRequirements.tasksCompleted || 0} tasks
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      function TasksTab({ form, setForm, addTask, tasks, completeTask, deleteTask }) {
+        return (
+          <div className="space-y-6">
+            {/* Add Task Form */}
+            <form onSubmit={addTask} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+              <h2 className="text-xl font-semibold mb-4">Add New Task</h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+                <input 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Task title"
+                  value={form.title} 
+                  onChange={e=> setForm({...form, title:e.target.value})} 
+                />
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={form.subject} 
+                  onChange={e=> {
+                    const newSubject = e.target.value;
+                    const subjectTree = SKILL_TREES[newSubject];
+                    const firstMainSkill = Object.keys(subjectTree.mainSkills)[0];
+                    const firstSubSkill = Object.keys(subjectTree.mainSkills[firstMainSkill].subSkills)[0];
+                    setForm({
+                      ...form, 
+                      subject: newSubject,
+                      mainSkill: firstMainSkill,
+                      subSkill: firstSubSkill
+                    });
+                  }}
+                >
+                  {Object.entries(SUBJECTS).map(([id, subject]) => (
+                    <option key={id} value={id}>{subject.icon} {subject.name}</option>
+                  ))}
+                </select>
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={form.mainSkill} 
+                  onChange={e=> {
+                    const newMainSkill = e.target.value;
+                    const firstSubSkill = Object.keys(SKILL_TREES[form.subject].mainSkills[newMainSkill].subSkills)[0];
+                    setForm({...form, mainSkill: newMainSkill, subSkill: firstSubSkill});
+                  }}
+                >
+                  {form.subject && Object.entries(SKILL_TREES[form.subject].mainSkills).map(([id, skill]) => (
+                    <option key={id} value={id}>{skill.name}</option>
+                  ))}
+                </select>
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={form.subSkill} 
+                  onChange={e=> setForm({...form, subSkill:e.target.value})}
+                >
+                  {form.subject && form.mainSkill && Object.entries(SKILL_TREES[form.subject].mainSkills[form.mainSkill].subSkills).map(([id, skill]) => (
+                    <option key={id} value={id}>{skill.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={form.difficulty} 
+                  onChange={e=> setForm({...form, difficulty:e.target.value})}
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                  <option value="Expert">Expert</option>
+                </select>
+                
+                <input 
+                  type="number" 
+                  min="0" 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Estimate (min)" 
+                  value={form.estimateMin} 
+                  onChange={e=> setForm({...form, estimateMin:e.target.value})} 
+                />
+                
+                <div className="flex items-center gap-2">
+                  <input 
+                    type="number" 
+                    min="1" 
+                    className="flex-1 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                    placeholder="Base XP" 
+                    value={form.baseXP} 
+                    onChange={e=> setForm({...form, baseXP:e.target.value})} 
+                  />
+                  <span className="text-xs text-neutral-400">
+                    Suggested: {form.suggestedXP}
+                  </span>
+                </div>
+              </div>
+              
+              <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">
+                Add Task
+              </button>
+            </form>
+
+            {/* Tasks List */}
+            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 divide-y divide-neutral-800 overflow-hidden">
+              {tasks.length===0 ? (
+                <div className="p-6 text-neutral-400">No tasks yet. Add your first task above.</div>
+              ) : (
+                tasks.map(t=>{
+                  const completed = (t.timesCompletedToday||0) > 0;
+                  const streakText = t.streak ? `${t.streak}🔥` : "—";
+                  return (
+                    <div key={t.id} className="p-4 flex items-center gap-4">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="text-base font-semibold truncate">{t.title}</div>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-200 border border-blue-800">
+                            {SUBJECTS[t.subject]?.icon} {SUBJECTS[t.subject]?.name}
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-800 text-neutral-300 border border-neutral-700">
+                            {t.subSkillName}
+                          </span>
+                          {t.difficulty && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full border ${
+                              t.difficulty === 'Easy' ? 'bg-green-900/40 text-green-200 border-green-800' :
+                              t.difficulty === 'Medium' ? 'bg-yellow-900/40 text-yellow-200 border-yellow-800' :
+                              t.difficulty === 'Hard' ? 'bg-orange-900/40 text-orange-200 border-orange-800' :
+                              'bg-red-900/40 text-red-200 border-red-800'
+                            }`}>
+                              {t.difficulty}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-neutral-400 mt-1">
+                          Base {t.baseXP} XP • Est {t.estimateMin||0} min • Streak {streakText} • Last: {t.lastCompleted || "—"}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button onClick={()=> completeTask(t.id)} disabled={completed}
+                          className={`px-3 py-2 rounded-xl text-sm font-semibold shadow
+                            ${completed ? "bg-neutral-800 text-neutral-500 cursor-not-allowed" : "bg-emerald-600 hover:bg-emerald-500 text-white"}`}>
+                          {completed ? "Done Today" : "Complete (+XP)"}
+                        </button>
+                        <button onClick={()=> deleteTask(t.id)}
+                          className="px-3 py-2 rounded-xl text-sm font-semibold bg-rose-900/60 hover:bg-rose-800 text-rose-100 shadow">
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        );
+      }
+
+      function ProjectsTab() {
+        return (
+          <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+            <h2 className="text-xl font-semibold mb-4">Projects</h2>
+            <div className="text-neutral-400">Project management coming soon...</div>
+          </div>
+        );
+      }
+
+      function AnalyticsTab() {
+        return (
+          <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+            <h2 className="text-xl font-semibold mb-4">Analytics</h2>
+            <div className="text-neutral-400">Analytics dashboard coming soon...</div>
+          </div>
+        );
+      }
+
       // ================== Main App ==================
       function LifeXPApp() {
         // Cloud backup instance
@@ -563,6 +1251,17 @@
         const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
+
+        // NEW: Dual XP and Skill Tree state
+        const [subjectXP, setSubjectXP] = useLocalStorage("lifexp.subjectXP", {
+          math: 0,
+          programming: 0,
+          economics: 0,
+          history: 0
+        });
+        const [subSkillProgress, setSubSkillProgress] = useLocalStorage("lifexp.subSkillProgress", {});
+        const [activeTab, setActiveTab] = useLocalStorage("lifexp.activeTab", "tasks");
+        const [activeSubject, setActiveSubject] = useState("math");
 
         // NEW: Challenge and template state
         const [challenges, setChallenges] = useLocalStorage("lifexp.challenges", { 
@@ -619,7 +1318,7 @@
           setIsSyncing(true);
           try {
             const currentData = {
-              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles
+              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
             };
             
             const syncedData = await cloudBackup.syncData(currentData);
@@ -640,6 +1339,9 @@
             if (syncedData.challenges) setChallenges(syncedData.challenges);
             if (syncedData.templates) setTemplates(syncedData.templates);
             if (syncedData.currentTitles) setCurrentTitles(syncedData.currentTitles);
+            if (syncedData.subjectXP) setSubjectXP(syncedData.subjectXP);
+            if (syncedData.subSkillProgress) setSubSkillProgress(syncedData.subSkillProgress);
+            if (syncedData.activeTab) setActiveTab(syncedData.activeTab);
             
             pushAlert("Data synced with cloud ✓");
           } catch (error) {
@@ -654,14 +1356,14 @@
           if (cloudBackup.isAuthenticated() && !isSyncing) {
             const timeoutId = setTimeout(() => {
               const currentData = {
-                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles
+                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
               };
               cloudBackup.syncData(currentData);
             }, 2000); // Debounce for 2 seconds
             
             return () => clearTimeout(timeoutId);
           }
-        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles]);
+        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab]);
 
         // Authentication functions
         const handleAuth = async (e) => {
@@ -1057,22 +1759,29 @@
         // ================== Task creation & completion ==================
         const [form, setForm] = useState({ 
           title:"", 
-          category:"General", 
-          taskType:"Medium Task", 
+          subject:"math", 
+          mainSkill:"pre_calculus",
+          subSkill:"arithmetic_foundations",
           difficulty:"Medium", 
-          baseXP: 30, 
+          baseXP: 10, 
           estimateMin: 30,
-          suggestedXP: 30,
+          suggestedXP: 10,
           showAdvanced: false
         });
 
         // Auto-suggest XP when form changes
         useEffect(() => {
-          if (form.title || form.category || form.taskType || form.difficulty || form.estimateMin) {
-            const suggested = suggestXP(form.title, form.category, form.taskType, form.difficulty, form.estimateMin);
-            setForm(prev => ({ ...prev, suggestedXP: suggested }));
+          if (form.subSkill) {
+            const subSkill = findSubSkillById(form.subSkill);
+            if (subSkill) {
+              setForm(prev => ({ 
+                ...prev, 
+                baseXP: subSkill.baseXP,
+                suggestedXP: subSkill.baseXP 
+              }));
+            }
           }
-        }, [form.title, form.category, form.taskType, form.difficulty, form.estimateMin]);
+        }, [form.subSkill]);
 
         function addTask(e){
           e.preventDefault();
@@ -1080,17 +1789,20 @@
           const baseXP = Math.max(1, Number(form.baseXP)||10);
           const estimateMin = Math.max(0, Number(form.estimateMin)||0);
           
-          // Learn from user's XP adjustment
-          const suggestedXP = suggestXP(title, form.category, form.taskType, form.difficulty, estimateMin);
-          if (baseXP !== suggestedXP) {
-            learnFromUserAdjustment(form.category, form.taskType, form.difficulty, suggestedXP, baseXP);
+          // Get sub-skill information
+          const subSkill = findSubSkillById(form.subSkill);
+          if (!subSkill) {
+            pushAlert("Please select a valid sub-skill", "error");
+            return;
           }
-          
+
           setTasks(t => [...t, {
             id: uid(), 
             title, 
-            category: form.category||"General",
-            taskType: form.taskType,
+            subject: form.subject,
+            mainSkill: form.mainSkill,
+            subSkillId: form.subSkill,
+            subSkillName: subSkill.name,
             difficulty: form.difficulty,
             baseXP, 
             estimateMin, 
@@ -1101,8 +1813,7 @@
           }]);
           setForm(f => ({ 
             ...f, 
-            title:"", 
-            suggestedXP: suggestXP("", f.category, f.taskType, f.difficulty, f.estimateMin)
+            title:"" 
           }));
         }
 
@@ -1137,52 +1848,69 @@
             const ans = prompt("Minutes spent on this task? (optional number)", t.estimateMin ? String(t.estimateMin) : "");
             if (ans !== null && ans.trim() !== "" && !isNaN(Number(ans))) actualMin = Math.max(0, Math.round(Number(ans)));
 
-            // Base task award (existing system)
+            // NEW: Get sub-skill information
+            const subSkillId = t.subSkillId;
+            const subject = t.subject;
+            
+            if (!subSkillId || !subject) {
+              pushAlert("Task missing sub-skill information. Please recreate the task.", "error");
+              return t;
+            }
+
+            // Get sub-skill progress
+            const currentSubSkillXP = subSkillProgress[subSkillId]?.xp || 0;
+            const subSkill = findSubSkillById(subSkillId);
+            
+            if (!subSkill) {
+              pushAlert("Sub-skill not found. Please recreate the task.", "error");
+              return t;
+            }
+
+            // Calculate XP using new system
+            const baseXP = subSkill.baseXP || t.baseXP || 10;
+            const taskXP = calculateTaskXP(
+              { xp: currentSubSkillXP }, 
+              baseXP, 
+              t.estimateMin, 
+              actualMin, 
+              t.difficulty
+            );
+
+            // Apply skill bonuses
             const continued = t.lastCompleted === yestISO();
             const newStreak = continued ? (t.streak||0)+1 : 1;
-            const base = Math.max(1, (t.baseXP||0) + baseFlat);
             const streakMult = Math.min(1 + 0.1*(newStreak-1), streakCap);
-            const novelty = t.lastCompleted ? 0 : Math.round(base*0.2);
-            let taskAward = Math.round((Math.round(base*streakMult) + novelty) * tasksMult);
+            const novelty = t.lastCompleted ? 0 : Math.round(taskXP*0.2);
+            let finalXP = Math.round((Math.round(taskXP*streakMult) + novelty) * tasksMult);
 
-            // Efficiency bonuses (apply to taskAward with cap relative to original baseXP)
-            const baseXP = t.baseXP || 0;
-            let effBonus = 0;
+            // Update sub-skill progress
+            setSubSkillProgress(prev => ({
+              ...prev,
+              [subSkillId]: {
+                ...prev[subSkillId],
+                xp: (prev[subSkillId]?.xp || 0) + finalXP,
+                tasksCompleted: (prev[subSkillId]?.tasksCompleted || 0) + 1,
+                lastCompleted: today
+              }
+            }));
 
-            // Single-touch: created & completed same day, and within estimate
-            const createdSameDay = (t.createdAt === today);
-            if (createdSameDay && actualMin !== null && t.estimateMin && actualMin <= t.estimateMin) {
-              effBonus += Math.round(0.20 * baseXP);
-            }
+            // Update subject XP
+            setSubjectXP(prev => ({
+              ...prev,
+              [subject]: prev[subject] + finalXP
+            }));
 
-            // Cycle-time: faster than personal median for category (14d)
-            const med = categoryMedianMinutes(t.category);
-            if (actualMin !== null && med !== null && actualMin <= 0.75 * med) {
-              effBonus += Math.round(0.15 * baseXP);
-            }
-
-            // Context run: this is ≥3rd task of same category within 90 minutes
-            if (contextRunCount(t.category) >= 3) {
-              effBonus += 10;
-            }
-
-            // Cap efficiency bonus to 30% of baseXP
-            effBonus = Math.min(effBonus, Math.round(0.30 * baseXP));
-
-            // Apply
-            taskAward += effBonus;
-
-            // Grant XP
-            setXp(x => x + taskAward);
+            // Update global XP
+            setXp(x => x + finalXP);
 
             // Logs
-            logEntry({ type:"task", amount: taskAward, meta: {
-              taskId: t.id, title: t.title, category: t.category,
-              estimateMin: t.estimateMin||null, actualMin: actualMin,
-              baseXP: baseXP, efficiencyBonus: effBonus
+            logEntry({ type:"task", amount: finalXP, meta: {
+              taskId: t.id, title: t.title, subject: subject, subSkillId: subSkillId,
+              subSkillName: subSkill.name, estimateMin: t.estimateMin||null, 
+              actualMin: actualMin, baseXP: baseXP, difficulty: t.difficulty
             }});
 
-            pushAlert(`Task: +${taskAward} XP • ${t.title}`);
+            pushAlert(`Task: +${finalXP} XP • ${subSkill.name} • ${t.title}`);
 
             // Update task fields
             return { ...t, lastCompleted: today, streak: newStreak, timesCompletedToday: 1 };
@@ -1190,6 +1918,23 @@
 
           // Recompute daily throughput tier (based on task XP vs focused minutes)
           setTimeout(()=> recomputeDailyThroughputBonus(), 0);
+        }
+
+        // Helper function to find sub-skill by ID
+        function findSubSkillById(targetSubSkillId) {
+          for (const subjectId in SKILL_TREES) {
+            const subject = SKILL_TREES[subjectId];
+            for (const mainSkillId in subject.mainSkills) {
+              const mainSkill = subject.mainSkills[mainSkillId];
+              for (const subSkillId in mainSkill.subSkills) {
+                const subSkill = mainSkill.subSkills[subSkillId];
+                if (subSkill.id === targetSubSkillId) {
+                  return subSkill;
+                }
+              }
+            }
+          }
+          return null;
         }
 
         function deleteTask(taskId){
@@ -1410,8 +2155,8 @@
 
         // ================== Export/Import/Reset ==================
         function exportData(){
-          const snapshot = { tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme,
-            meta:{ exportedAt:new Date().toISOString(), version:2 } };
+          const snapshot = { tasks, projects, xp, skill, lastLevel, milestones, dateInfo, log, settings, theme, subjectXP, subSkillProgress, activeTab,
+            meta:{ exportedAt:new Date().toISOString(), version:3 } };
           const blob = new Blob([JSON.stringify(snapshot,null,2)], { type:"application/json" });
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a"); a.href=url; a.download=`lifexp-backup-${todayISO()}.json`; a.click(); URL.revokeObjectURL(url);
@@ -1426,6 +2171,9 @@
               setSkill(data.skill||{ points:0, upgrades:{} }); setLastLevel(data.lastLevel||0);
               setMilestones(data.milestones||{ claimed:[] }); setLog(data.log||[]);
               setSettings(data.settings||settings); setTheme(data.theme||theme);
+              if (data.subjectXP) setSubjectXP(data.subjectXP);
+              if (data.subSkillProgress) setSubSkillProgress(data.subSkillProgress);
+              if (data.activeTab) setActiveTab(data.activeTab);
               pushAlert("Import successful ✓");
             } catch { alert("Invalid file"); }
           };
@@ -1585,6 +2333,31 @@
                 ))}
               </div>
 
+              {/* Tab Navigation */}
+              <div className="mb-6">
+                <div className="flex space-x-1 bg-neutral-900 p-1 rounded-xl">
+                  {[
+                    { id: 'tasks', label: 'Tasks', icon: '📝' },
+                    { id: 'skills', label: 'Skills', icon: '🌳' },
+                    { id: 'projects', label: 'Projects', icon: '🎯' },
+                    { id: 'analytics', label: 'Analytics', icon: '📊' }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-semibold transition-all ${
+                        activeTab === tab.id
+                          ? 'bg-blue-600 text-white shadow-lg'
+                          : 'text-neutral-400 hover:text-neutral-200 hover:bg-neutral-800'
+                      }`}
+                    >
+                      <span>{tab.icon}</span>
+                      <span>{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               <header className="mb-6 flex items-center justify-between">
                 <div>
                   <h1 className="text-3xl font-bold">LifeXP</h1>
@@ -1628,6 +2401,72 @@
                   <button onClick={resetAll} className="px-3 py-2 rounded-2xl bg-rose-900/60 hover:bg-rose-800 text-rose-100 text-sm shadow">Reset All</button>
                 </div>
               </header>
+
+              {/* Global Progress Overview */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-semibold">Global Progress</h2>
+                  <div className="text-sm text-neutral-300">
+                    Level {level} • {xp} XP
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  {Object.entries(SUBJECTS).map(([subjectId, subject]) => {
+                    const subjectXPAmount = subjectXP[subjectId] || 0;
+                    const subjectLevel = XP_SYSTEM.getSubjectLevel(subjectXPAmount);
+                    const progress = (subjectXPAmount % 1000) / 1000 * 100; // Progress within current level
+                    
+                    return (
+                      <div key={subjectId} className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-lg">{subject.icon}</span>
+                          <div className="font-semibold">{subject.name}</div>
+                        </div>
+                        <div className="text-sm text-neutral-400 mb-1">Level {subjectLevel}</div>
+                        <div className="text-xs text-neutral-500 mb-2">{subjectXPAmount} XP</div>
+                        <div className="w-full bg-neutral-700 rounded-full h-2">
+                          <div 
+                            className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              {activeTab === 'skills' && (
+                <SkillsTab 
+                  activeSubject={activeSubject}
+                  setActiveSubject={setActiveSubject}
+                  subjectXP={subjectXP}
+                  subSkillProgress={subSkillProgress}
+                  setForm={setForm}
+                />
+              )}
+
+              {activeTab === 'tasks' && (
+                <>
+                  {/* Existing task content will go here */}
+                  <TasksTab form={form} setForm={setForm} addTask={addTask} tasks={tasks} completeTask={completeTask} deleteTask={deleteTask} />
+                </>
+              )}
+
+              {activeTab === 'projects' && (
+                <>
+                  {/* Existing project content will go here */}
+                  <ProjectsTab />
+                </>
+              )}
+
+              {activeTab === 'analytics' && (
+                <>
+                  {/* Existing analytics content will go here */}
+                  <AnalyticsTab />
+                </>
+              )}
 
               {/* Authentication Modal */}
               {showAuth && (
