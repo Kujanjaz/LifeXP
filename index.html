@@ -930,8 +930,39 @@
       // ================== Tab Components ==================
       
       function SkillsTab({ activeSubject, setActiveSubject, subjectXP, subSkillProgress, setForm, log, setActiveTab }) {
+        const [skillTreeView, setSkillTreeView] = useState('traditional'); // 'traditional' or 'poe'
+        
         return (
           <div className="space-y-6">
+            {/* View Toggle */}
+            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-semibold">Skill Tree View</h2>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setSkillTreeView('traditional')}
+                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                      skillTreeView === 'traditional'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    Traditional
+                  </button>
+                  <button
+                    onClick={() => setSkillTreeView('poe')}
+                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
+                      skillTreeView === 'poe'
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
+                    }`}
+                  >
+                    Path of Exile Style
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Subject Selection */}
             <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
               <h2 className="text-xl font-semibold mb-4">Subject Skills</h2>
@@ -958,94 +989,106 @@
               </div>
             </div>
 
-            {/* Skill Tree */}
-            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
-              <h2 className="text-xl font-semibold mb-4">
-                {SUBJECTS[activeSubject]?.icon} {SUBJECTS[activeSubject]?.name} Skill Tree
-              </h2>
-              
-              <div className="space-y-6">
-                {SKILL_TREES[activeSubject] && Object.entries(SKILL_TREES[activeSubject].mainSkills).map(([mainSkillId, mainSkill]) => {
-                  const mainSkillXP = Object.keys(mainSkill.subSkills).reduce((total, subSkillId) => {
-                    return total + (subSkillProgress[subSkillId]?.xp || 0);
-                  }, 0);
-                  const isMainSkillUnlocked = XP_SYSTEM.isSkillUnlocked(mainSkill, { 
-                    tasksCompleted: log.filter(e => e.type === "task").length 
-                  });
-                  
-                  return (
-                    <div key={mainSkillId} className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
-                      <div className="flex items-center justify-between mb-4">
-                        <div>
-                          <h3 className="text-lg font-semibold">{mainSkill.name}</h3>
-                          <div className="text-sm text-neutral-400">{mainSkillXP} XP total</div>
+            {skillTreeView === 'traditional' ? (
+              /* Traditional Skill Tree */
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+                <h2 className="text-xl font-semibold mb-4">
+                  {SUBJECTS[activeSubject]?.icon} {SUBJECTS[activeSubject]?.name} Skill Tree
+                </h2>
+                
+                <div className="space-y-6">
+                  {SKILL_TREES[activeSubject] && Object.entries(SKILL_TREES[activeSubject].mainSkills).map(([mainSkillId, mainSkill]) => {
+                    const mainSkillXP = Object.keys(mainSkill.subSkills).reduce((total, subSkillId) => {
+                      return total + (subSkillProgress[subSkillId]?.xp || 0);
+                    }, 0);
+                    const isMainSkillUnlocked = XP_SYSTEM.isSkillUnlocked(mainSkill, { 
+                      tasksCompleted: log.filter(e => e.type === "task").length 
+                    });
+                    
+                    return (
+                      <div key={mainSkillId} className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="flex items-center justify-between mb-4">
+                          <div>
+                            <h3 className="text-lg font-semibold">{mainSkill.name}</h3>
+                            <div className="text-sm text-neutral-400">{mainSkillXP} XP total</div>
+                          </div>
+                          <div className={`px-3 py-1 rounded-full text-sm ${
+                            isMainSkillUnlocked 
+                              ? 'bg-green-900/50 text-green-200 border border-green-800'
+                              : 'bg-neutral-700 text-neutral-400 border border-neutral-600'
+                          }`}>
+                            {isMainSkillUnlocked ? 'Unlocked' : 'Locked'}
+                          </div>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-sm ${
-                          isMainSkillUnlocked 
-                            ? 'bg-green-900/50 text-green-200 border border-green-800'
-                            : 'bg-neutral-700 text-neutral-400 border border-neutral-600'
-                        }`}>
-                          {isMainSkillUnlocked ? 'Unlocked' : 'Locked'}
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                        {Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => {
-                          const progress = subSkillProgress[subSkillId] || { xp: 0, tasksCompleted: 0 };
-                          const isUnlocked = XP_SYSTEM.isSkillUnlocked(subSkill, progress);
-                          const masteryLevel = XP_SYSTEM.getMasteryLevel(progress.xp);
-                          const masteryName = subSkill.masteryLevels[masteryLevel];
-                          
-                          return (
-                            <div
-                              key={subSkillId}
-                              className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                                isUnlocked
-                                  ? 'bg-neutral-700 border-neutral-600 hover:border-neutral-500'
-                                  : 'bg-neutral-900 border-neutral-800 opacity-50'
-                              }`}
-                              onClick={() => {
-                                if (isUnlocked) {
-                                  setForm(prev => ({
-                                    ...prev,
-                                    subject: activeSubject,
-                                    mainSkill: mainSkillId,
-                                    subSkill: subSkillId
-                                  }));
-                                  setActiveTab('tasks');
-                                }
-                              }}
-                            >
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="font-semibold text-sm">{subSkill.name}</div>
-                                <div className="text-xs text-neutral-400">{progress.xp} XP</div>
-                              </div>
-                              
-                              <div className="text-xs text-neutral-500 mb-2">
-                                {masteryName} • {progress.tasksCompleted} tasks
-                              </div>
-                              
-                              <div className="w-full bg-neutral-800 rounded-full h-2 mb-2">
-                                <div 
-                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                                  style={{ width: `${Math.min(100, (progress.xp / 1000) * 100)}%` }}
-                                />
-                              </div>
-                              
-                              {!isUnlocked && (
-                                <div className="text-xs text-amber-400">
-                                  Requires: {subSkill.unlockRequirements.tasksCompleted || 0} tasks
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => {
+                            const progress = subSkillProgress[subSkillId] || { xp: 0, tasksCompleted: 0 };
+                            const isUnlocked = XP_SYSTEM.isSkillUnlocked(subSkill, progress);
+                            const masteryLevel = XP_SYSTEM.getMasteryLevel(progress.xp);
+                            const masteryName = subSkill.masteryLevels[masteryLevel];
+                            
+                            return (
+                              <div
+                                key={subSkillId}
+                                className={`p-3 rounded-xl border transition-all cursor-pointer ${
+                                  isUnlocked
+                                    ? 'bg-neutral-700 border-neutral-600 hover:border-neutral-500'
+                                    : 'bg-neutral-900 border-neutral-800 opacity-50'
+                                }`}
+                                onClick={() => {
+                                  if (isUnlocked) {
+                                    setForm(prev => ({
+                                      ...prev,
+                                      subject: activeSubject,
+                                      mainSkill: mainSkillId,
+                                      subSkill: subSkillId
+                                    }));
+                                    setActiveTab('tasks');
+                                  }
+                                }}
+                              >
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="font-semibold text-sm">{subSkill.name}</div>
+                                  <div className="text-xs text-neutral-400">{progress.xp} XP</div>
                                 </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                                
+                                <div className="text-xs text-neutral-500 mb-2">
+                                  {masteryName} • {progress.tasksCompleted} tasks
+                                </div>
+                                
+                                <div className="w-full bg-neutral-800 rounded-full h-2 mb-2">
+                                  <div 
+                                    className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                    style={{ width: `${Math.min(100, (progress.xp / 1000) * 100)}%` }}
+                                  />
+                                </div>
+                                
+                                {!isUnlocked && (
+                                  <div className="text-xs text-amber-400">
+                                    Requires: {subSkill.unlockRequirements.tasksCompleted || 0} tasks
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ) : (
+              /* PoE-Style Skill Tree */
+              <PoEStyleSkillTree 
+                activeSubject={activeSubject}
+                subjectXP={subjectXP}
+                subSkillProgress={subSkillProgress}
+                setForm={setForm}
+                log={log}
+                setActiveTab={setActiveTab}
+              />
+            )}
           </div>
         );
       }
@@ -1201,6 +1244,424 @@
                   );
                 })
               )}
+            </div>
+          </div>
+        );
+      }
+
+      // PoE-Style Skill Tree Component
+      function PoEStyleSkillTree({ activeSubject, subjectXP, subSkillProgress, setForm, log, setActiveTab }) {
+        const [zoom, setZoom] = useState(1);
+        const [panX, setPanX] = useState(0);
+        const [panY, setPanY] = useState(0);
+        const [dragging, setDragging] = useState(false);
+        const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+        const [hoveredNode, setHoveredNode] = useState(null);
+
+        // Sample PoE-style skill tree data (simplified version)
+        const poeSkillTree = {
+          math: {
+            nodes: {
+              math_start: {
+                id: 'math_start',
+                name: 'Mathematical Foundations',
+                type: 'keystone',
+                x: 0,
+                y: 0,
+                description: 'The foundation of all mathematical knowledge',
+                requirements: { tasksCompleted: 0 },
+                connections: ['math_arithmetic', 'math_algebra_branch']
+              },
+              math_arithmetic: {
+                id: 'math_arithmetic',
+                name: 'Arithmetic',
+                type: 'small',
+                x: -100,
+                y: -50,
+                description: 'Basic number operations and properties',
+                requirements: { tasksCompleted: 1 },
+                connections: ['math_fractions', 'math_decimals']
+              },
+              math_fractions: {
+                id: 'math_fractions',
+                name: 'Fractions',
+                type: 'small',
+                x: -150,
+                y: -100,
+                description: 'Working with fractional numbers',
+                requirements: { tasksCompleted: 2 },
+                connections: []
+              },
+              math_decimals: {
+                id: 'math_decimals',
+                name: 'Decimals',
+                type: 'small',
+                x: -150,
+                y: 0,
+                description: 'Decimal number operations',
+                requirements: { tasksCompleted: 2 },
+                connections: []
+              },
+              math_algebra_branch: {
+                id: 'math_algebra_branch',
+                name: 'Algebra Pathway',
+                type: 'notable',
+                x: 100,
+                y: 0,
+                description: 'Unlocks the algebra skill tree',
+                requirements: { tasksCompleted: 3 },
+                connections: ['math_algebra1', 'math_variables']
+              },
+              math_variables: {
+                id: 'math_variables',
+                name: 'Variables',
+                type: 'small',
+                x: 150,
+                y: -50,
+                description: 'Understanding variables and expressions',
+                requirements: { tasksCompleted: 4 },
+                connections: ['math_equations']
+              },
+              math_equations: {
+                id: 'math_equations',
+                name: 'Linear Equations',
+                type: 'small',
+                x: 200,
+                y: -100,
+                description: 'Solving linear equations',
+                requirements: { tasksCompleted: 5 },
+                connections: []
+              },
+              math_algebra1: {
+                id: 'math_algebra1',
+                name: 'Algebra I',
+                type: 'notable',
+                x: 150,
+                y: 50,
+                description: 'Fundamental algebraic concepts',
+                requirements: { tasksCompleted: 6 },
+                connections: ['math_polynomials', 'math_factoring']
+              },
+              math_polynomials: {
+                id: 'math_polynomials',
+                name: 'Polynomials',
+                type: 'small',
+                x: 200,
+                y: 0,
+                description: 'Working with polynomial expressions',
+                requirements: { tasksCompleted: 7 },
+                connections: []
+              },
+              math_factoring: {
+                id: 'math_factoring',
+                name: 'Factoring',
+                type: 'small',
+                x: 200,
+                y: 100,
+                description: 'Factoring techniques and methods',
+                requirements: { tasksCompleted: 7 },
+                connections: []
+              }
+            }
+          },
+          programming: {
+            nodes: {
+              prog_start: {
+                id: 'prog_start',
+                name: 'Programming Basics',
+                type: 'keystone',
+                x: 0,
+                y: 0,
+                description: 'The foundation of programming knowledge',
+                requirements: { tasksCompleted: 0 },
+                connections: ['prog_syntax', 'prog_variables']
+              },
+              prog_syntax: {
+                id: 'prog_syntax',
+                name: 'Syntax',
+                type: 'small',
+                x: -100,
+                y: -50,
+                description: 'Understanding programming syntax',
+                requirements: { tasksCompleted: 1 },
+                connections: ['prog_operators']
+              },
+              prog_operators: {
+                id: 'prog_operators',
+                name: 'Operators',
+                type: 'small',
+                x: -150,
+                y: -100,
+                description: 'Mathematical and logical operators',
+                requirements: { tasksCompleted: 2 },
+                connections: []
+              },
+              prog_variables: {
+                id: 'prog_variables',
+                name: 'Variables',
+                type: 'small',
+                x: -100,
+                y: 50,
+                description: 'Variable declaration and usage',
+                requirements: { tasksCompleted: 1 },
+                connections: ['prog_data_types']
+              },
+              prog_data_types: {
+                id: 'prog_data_types',
+                name: 'Data Types',
+                type: 'small',
+                x: -150,
+                y: 100,
+                description: 'Understanding different data types',
+                requirements: { tasksCompleted: 2 },
+                connections: []
+              },
+              prog_control_branch: {
+                id: 'prog_control_branch',
+                name: 'Control Flow',
+                type: 'notable',
+                x: 100,
+                y: 0,
+                description: 'Program flow and decision making',
+                requirements: { tasksCompleted: 3 },
+                connections: ['prog_conditionals', 'prog_loops']
+              },
+              prog_conditionals: {
+                id: 'prog_conditionals',
+                name: 'Conditionals',
+                type: 'small',
+                x: 150,
+                y: -50,
+                description: 'If/else statements and branching',
+                requirements: { tasksCompleted: 4 },
+                connections: []
+              },
+              prog_loops: {
+                id: 'prog_loops',
+                name: 'Loops',
+                type: 'small',
+                x: 150,
+                y: 50,
+                description: 'Iteration and repetition',
+                requirements: { tasksCompleted: 4 },
+                connections: []
+              }
+            }
+          }
+        };
+
+        const currentTree = poeSkillTree[activeSubject];
+        if (!currentTree) return <div>No skill tree available for this subject.</div>;
+
+        const handleMouseDown = (e) => {
+          if (e.target.tagName === 'svg' || e.target.tagName === 'g') {
+            setDragging(true);
+            setDragStart({ x: e.clientX - panX, y: e.clientY - panY });
+          }
+        };
+
+        const handleMouseMove = (e) => {
+          if (dragging) {
+            setPanX(e.clientX - dragStart.x);
+            setPanY(e.clientY - dragStart.y);
+          }
+        };
+
+        const handleMouseUp = () => {
+          setDragging(false);
+        };
+
+        const handleWheel = (e) => {
+          e.preventDefault();
+          const delta = e.deltaY > 0 ? 0.9 : 1.1;
+          setZoom(Math.max(0.5, Math.min(2, zoom * delta)));
+        };
+
+        const getNodeStyle = (node) => {
+          const isUnlocked = XP_SYSTEM.isSkillUnlocked(node, { 
+            tasksCompleted: log.filter(e => e.type === "task").length 
+          });
+          
+          let baseStyle = {
+            r: node.type === 'keystone' ? 20 : node.type === 'notable' ? 15 : 10,
+            fill: isUnlocked ? '#10B981' : '#6B7280',
+            stroke: isUnlocked ? '#059669' : '#4B5563',
+            strokeWidth: 2
+          };
+
+          if (hoveredNode === node.id) {
+            baseStyle.strokeWidth = 3;
+            baseStyle.stroke = '#3B82F6';
+          }
+
+          return baseStyle;
+        };
+
+        const getConnectionPath = (fromNode, toNode) => {
+          const x1 = fromNode.x;
+          const y1 = fromNode.y;
+          const x2 = toNode.x;
+          const y2 = toNode.y;
+          
+          const midX = (x1 + x2) / 2;
+          const midY = (y1 + y2) / 2;
+          
+          return `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
+        };
+
+        return (
+          <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 overflow-hidden">
+            <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
+              <h2 className="text-xl font-semibold">
+                {SUBJECTS[activeSubject]?.icon} {SUBJECTS[activeSubject]?.name} - Path of Exile Style
+              </h2>
+              <div className="flex items-center gap-4">
+                <div className="text-sm text-neutral-400">
+                  Zoom: {Math.round(zoom * 100)}%
+                </div>
+                <button
+                  onClick={() => {
+                    setZoom(1);
+                    setPanX(0);
+                    setPanY(0);
+                  }}
+                  className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
+                >
+                  Reset View
+                </button>
+              </div>
+            </div>
+
+            <div className="relative h-96 bg-neutral-950 overflow-hidden">
+              <svg
+                width="100%"
+                height="100%"
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onWheel={handleWheel}
+                style={{ cursor: dragging ? 'grabbing' : 'grab' }}
+              >
+                <defs>
+                  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                    <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#374151" strokeWidth="0.5" opacity="0.3"/>
+                  </pattern>
+                </defs>
+                
+                {/* Grid background */}
+                <rect width="100%" height="100%" fill="url(#grid)" />
+                
+                <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
+                  {/* Connection lines */}
+                  {Object.values(currentTree.nodes).map(node => 
+                    node.connections?.map(connectionId => {
+                      const connectedNode = currentTree.nodes[connectionId];
+                      if (!connectedNode) return null;
+                      
+                      const isFromUnlocked = XP_SYSTEM.isSkillUnlocked(node, { 
+                        tasksCompleted: log.filter(e => e.type === "task").length 
+                      });
+                      const isToUnlocked = XP_SYSTEM.isSkillUnlocked(connectedNode, { 
+                        tasksCompleted: log.filter(e => e.type === "task").length 
+                      });
+                      
+                      return (
+                        <path
+                          key={`${node.id}-${connectionId}`}
+                          d={getConnectionPath(node, connectedNode)}
+                          stroke={isFromUnlocked && isToUnlocked ? '#10B981' : '#6B7280'}
+                          strokeWidth="2"
+                          fill="none"
+                          opacity="0.6"
+                        />
+                      );
+                    })
+                  )}
+                  
+                  {/* Skill nodes */}
+                  {Object.values(currentTree.nodes).map(node => (
+                    <g key={node.id}>
+                      <circle
+                        cx={node.x}
+                        cy={node.y}
+                        {...getNodeStyle(node)}
+                        onMouseEnter={() => setHoveredNode(node.id)}
+                        onMouseLeave={() => setHoveredNode(null)}
+                        onClick={() => {
+                          const isUnlocked = XP_SYSTEM.isSkillUnlocked(node, { 
+                            tasksCompleted: log.filter(e => e.type === "task").length 
+                          });
+                          if (isUnlocked) {
+                            setForm(prev => ({
+                              ...prev,
+                              subject: activeSubject,
+                              mainSkill: node.id,
+                              subSkill: node.id
+                            }));
+                            setActiveTab('tasks');
+                          }
+                        }}
+                        style={{ cursor: 'pointer' }}
+                      />
+                      
+                      {/* Node type indicator */}
+                      {node.type === 'keystone' && (
+                        <text
+                          x={node.x}
+                          y={node.y - 25}
+                          textAnchor="middle"
+                          className="text-xs fill-white font-bold"
+                        >
+                          ★
+                        </text>
+                      )}
+                      {node.type === 'notable' && (
+                        <text
+                          x={node.x}
+                          y={node.y - 20}
+                          textAnchor="middle"
+                          className="text-xs fill-white font-bold"
+                        >
+                          ◆
+                        </text>
+                      )}
+                    </g>
+                  ))}
+                </g>
+              </svg>
+            </div>
+
+            {/* Node tooltip */}
+            {hoveredNode && currentTree.nodes[hoveredNode] && (
+              <div className="absolute bottom-4 left-4 bg-neutral-800 border border-neutral-700 rounded-lg p-3 max-w-xs z-10">
+                <div className="font-semibold text-sm mb-1">
+                  {currentTree.nodes[hoveredNode].name}
+                </div>
+                <div className="text-xs text-neutral-400 mb-2">
+                  {currentTree.nodes[hoveredNode].description}
+                </div>
+                <div className="text-xs text-amber-400">
+                  Requires: {currentTree.nodes[hoveredNode].requirements.tasksCompleted} tasks completed
+                </div>
+              </div>
+            )}
+
+            {/* Controls */}
+            <div className="p-4 border-t border-neutral-800">
+              <div className="text-sm text-neutral-400">
+                <div className="mb-2">🎮 Path of Exile Style Controls:</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                  <div>• Click and drag to pan around the skill tree</div>
+                  <div>• Mouse wheel to zoom in/out</div>
+                  <div>• Click on unlocked nodes to create tasks</div>
+                  <div>• Hover over nodes to see details</div>
+                </div>
+                <div className="mt-2 text-xs">
+                  <span className="text-emerald-400">●</span> Small Skills • 
+                  <span className="text-blue-400">◆</span> Notable Skills • 
+                  <span className="text-yellow-400">★</span> Keystone Skills
+                </div>
+              </div>
             </div>
           </div>
         );
