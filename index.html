@@ -1454,7 +1454,8 @@
         if (!currentTree) return <div>No skill tree available for this subject.</div>;
 
         const handleMouseDown = (e) => {
-          if (e.target.tagName === 'svg' || e.target.tagName === 'g') {
+          // Only start dragging if clicking on empty space, not on nodes
+          if (e.target.tagName === 'svg' || (e.target.tagName === 'g' && e.target.classList.contains('grid-group'))) {
             setDragging(true);
             setDragStart({ x: e.clientX - panX, y: e.clientY - panY });
           }
@@ -1509,6 +1510,20 @@
           return `M ${x1} ${y1} Q ${midX} ${midY} ${x2} ${y2}`;
         };
 
+        // Calculate viewport bounds for better navigation
+        const getViewportBounds = () => {
+          const bounds = { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+          Object.values(currentTree.nodes).forEach(node => {
+            bounds.minX = Math.min(bounds.minX, node.x);
+            bounds.maxX = Math.max(bounds.maxX, node.x);
+            bounds.minY = Math.min(bounds.minY, node.y);
+            bounds.maxY = Math.max(bounds.maxY, node.y);
+          });
+          return bounds;
+        };
+
+        const bounds = getViewportBounds();
+
         return (
           <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 overflow-hidden">
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between">
@@ -1519,23 +1534,39 @@
                 <div className="text-sm text-neutral-400">
                   Zoom: {Math.round(zoom * 100)}%
                 </div>
-                <button
-                  onClick={() => {
-                    setZoom(1);
-                    setPanX(0);
-                    setPanY(0);
-                  }}
-                  className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
-                >
-                  Reset View
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      setZoom(1);
+                      setPanX(0);
+                      setPanY(0);
+                    }}
+                    className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
+                  >
+                    Reset View
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Center the view on all nodes
+                      const centerX = (bounds.minX + bounds.maxX) / 2;
+                      const centerY = (bounds.minY + bounds.maxY) / 2;
+                      setPanX(-centerX);
+                      setPanY(-centerY);
+                      setZoom(1);
+                    }}
+                    className="px-3 py-1 rounded bg-neutral-800 hover:bg-neutral-700 text-sm"
+                  >
+                    Center View
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="relative h-96 bg-neutral-950 overflow-hidden">
+            <div className="relative h-[600px] bg-neutral-950 overflow-hidden">
               <svg
                 width="100%"
                 height="100%"
+                viewBox={`${bounds.minX - 100} ${bounds.minY - 100} ${bounds.maxX - bounds.minX + 200} ${bounds.maxY - bounds.minY + 200}`}
                 onMouseDown={handleMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -1543,13 +1574,19 @@
                 style={{ cursor: dragging ? 'grabbing' : 'grab' }}
               >
                 <defs>
-                  <pattern id="grid" width="50" height="50" patternUnits="userSpaceOnUse">
+                  <pattern id={`grid-${activeSubject}`} width="50" height="50" patternUnits="userSpaceOnUse">
                     <path d="M 50 0 L 0 0 0 50" fill="none" stroke="#374151" strokeWidth="0.5" opacity="0.3"/>
                   </pattern>
                 </defs>
                 
                 {/* Grid background */}
-                <rect width="100%" height="100%" fill="url(#grid)" />
+                <rect 
+                  x={bounds.minX - 100} 
+                  y={bounds.minY - 100} 
+                  width={bounds.maxX - bounds.minX + 200} 
+                  height={bounds.maxY - bounds.minY + 200} 
+                  fill={`url(#grid-${activeSubject})`} 
+                />
                 
                 <g transform={`translate(${panX}, ${panY}) scale(${zoom})`}>
                   {/* Connection lines */}
@@ -1579,54 +1616,73 @@
                   )}
                   
                   {/* Skill nodes */}
-                  {Object.values(currentTree.nodes).map(node => (
-                    <g key={node.id}>
-                      <circle
-                        cx={node.x}
-                        cy={node.y}
-                        {...getNodeStyle(node)}
-                        onMouseEnter={() => setHoveredNode(node.id)}
-                        onMouseLeave={() => setHoveredNode(null)}
-                        onClick={() => {
-                          const isUnlocked = XP_SYSTEM.isSkillUnlocked(node, { 
-                            tasksCompleted: log.filter(e => e.type === "task").length 
-                          });
-                          if (isUnlocked) {
-                            setForm(prev => ({
-                              ...prev,
-                              subject: activeSubject,
-                              mainSkill: node.id,
-                              subSkill: node.id
-                            }));
-                            setActiveTab('tasks');
-                          }
-                        }}
-                        style={{ cursor: 'pointer' }}
-                      />
-                      
-                      {/* Node type indicator */}
-                      {node.type === 'keystone' && (
+                  {Object.values(currentTree.nodes).map(node => {
+                    const isUnlocked = XP_SYSTEM.isSkillUnlocked(node, { 
+                      tasksCompleted: log.filter(e => e.type === "task").length 
+                    });
+                    
+                    return (
+                      <g key={node.id} className="skill-node">
+                        <circle
+                          cx={node.x}
+                          cy={node.y}
+                          {...getNodeStyle(node)}
+                          onMouseEnter={() => setHoveredNode(node.id)}
+                          onMouseLeave={() => setHoveredNode(null)}
+                          onClick={(e) => {
+                            e.stopPropagation(); // Prevent dragging when clicking nodes
+                            if (isUnlocked) {
+                              try {
+                                setForm(prev => ({
+                                  ...prev,
+                                  subject: activeSubject,
+                                  mainSkill: node.id,
+                                  subSkill: node.id
+                                }));
+                                setActiveTab('tasks');
+                              } catch (error) {
+                                console.error('Error switching to tasks tab:', error);
+                              }
+                            }
+                          }}
+                          style={{ cursor: isUnlocked ? 'pointer' : 'not-allowed' }}
+                        />
+                        
+                        {/* Node type indicator */}
+                        {node.type === 'keystone' && (
+                          <text
+                            x={node.x}
+                            y={node.y - 25}
+                            textAnchor="middle"
+                            className="text-xs fill-white font-bold pointer-events-none"
+                          >
+                            ★
+                          </text>
+                        )}
+                        {node.type === 'notable' && (
+                          <text
+                            x={node.x}
+                            y={node.y - 20}
+                            textAnchor="middle"
+                            className="text-xs fill-white font-bold pointer-events-none"
+                          >
+                            ◆
+                          </text>
+                        )}
+                        
+                        {/* Node label */}
                         <text
                           x={node.x}
-                          y={node.y - 25}
+                          y={node.y + 35}
                           textAnchor="middle"
-                          className="text-xs fill-white font-bold"
+                          className="text-xs fill-neutral-300 pointer-events-none"
+                          style={{ fontSize: '10px' }}
                         >
-                          ★
+                          {node.name}
                         </text>
-                      )}
-                      {node.type === 'notable' && (
-                        <text
-                          x={node.x}
-                          y={node.y - 20}
-                          textAnchor="middle"
-                          className="text-xs fill-white font-bold"
-                        >
-                          ◆
-                        </text>
-                      )}
-                    </g>
-                  ))}
+                      </g>
+                    );
+                  })}
                 </g>
               </svg>
             </div>
@@ -1651,15 +1707,28 @@
               <div className="text-sm text-neutral-400">
                 <div className="mb-2">🎮 Path of Exile Style Controls:</div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
-                  <div>• Click and drag to pan around the skill tree</div>
-                  <div>• Mouse wheel to zoom in/out</div>
-                  <div>• Click on unlocked nodes to create tasks</div>
-                  <div>• Hover over nodes to see details</div>
+                  <div>• Click and drag on empty space to pan</div>
+                  <div>• Mouse wheel to zoom in/out (50%-200%)</div>
+                  <div>• Click on unlocked green nodes to create tasks</div>
+                  <div>• Hover over nodes to see detailed information</div>
                 </div>
-                <div className="mt-2 text-xs">
-                  <span className="text-emerald-400">●</span> Small Skills • 
-                  <span className="text-blue-400">◆</span> Notable Skills • 
-                  <span className="text-yellow-400">★</span> Keystone Skills
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <div className="text-xs font-semibold mb-1">Node Types:</div>
+                    <div className="text-xs space-y-1">
+                      <div><span className="text-emerald-400">●</span> Small Skills (Basic abilities)</div>
+                      <div><span className="text-blue-400">◆</span> Notable Skills (Important milestones)</div>
+                      <div><span className="text-yellow-400">★</span> Keystone Skills (Major game-changers)</div>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold mb-1">Node States:</div>
+                    <div className="text-xs space-y-1">
+                      <div><span className="text-emerald-400">●</span> Green = Unlocked (can create tasks)</div>
+                      <div><span className="text-gray-400">●</span> Gray = Locked (need prerequisites)</div>
+                      <div><span className="text-blue-400">●</span> Blue = Hovered (showing details)</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
