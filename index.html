@@ -161,6 +161,221 @@
       const PASSIVE_RATES = { Training: 0.8, Language: 1.0, Study: 1.2 };
       const PASSIVE_BLOCK_BONUS = 5;
 
+      // Task Templates
+      const TASK_TEMPLATES = {
+        "CS1010E Practice": {
+          category: "CS1010E",
+          taskType: "Practice",
+          difficulty: "Medium",
+          baseXP: 20,
+          estimateMin: 30,
+          description: "Daily CS1010E practice problems"
+        },
+        "MA1301 Exercise": {
+          category: "MA1301",
+          taskType: "Exercise",
+          difficulty: "Medium",
+          baseXP: 15,
+          estimateMin: 25,
+          description: "Mathematics exercise practice"
+        },
+        "Study Session": {
+          category: "Study",
+          taskType: "Study",
+          difficulty: "Medium",
+          baseXP: 20,
+          estimateMin: 45,
+          description: "General study session"
+        },
+        "Language Practice": {
+          category: "Language",
+          taskType: "Vocabulary",
+          difficulty: "Easy",
+          baseXP: 10,
+          estimateMin: 15,
+          description: "Language learning practice"
+        },
+        "Workout": {
+          category: "Training",
+          taskType: "Workout",
+          difficulty: "Medium",
+          baseXP: 30,
+          estimateMin: 60,
+          description: "Physical training session"
+        }
+      };
+
+      // Challenge System
+      const CHALLENGES = {
+        daily: [
+          {
+            id: "complete_3_tasks",
+            name: "Task Master",
+            description: "Complete 3 tasks today",
+            target: 3,
+            reward: { xp: 50, sp: 0 },
+            check: (data) => data.tasksCompletedToday || 0
+          },
+          {
+            id: "focus_25_min",
+            name: "Focus Session",
+            description: "Complete a 25+ minute focus session",
+            target: 1,
+            reward: { xp: 30, sp: 0 },
+            check: (data) => data.focusSessionsToday || 0
+          },
+          {
+            id: "early_task",
+            name: "Early Bird",
+            description: "Complete a task before 9 AM",
+            target: 1,
+            reward: { xp: 25, sp: 0 },
+            check: (data) => data.earlyTasksToday || 0
+          }
+        ],
+        weekly: [
+          {
+            id: "complete_20_tasks",
+            name: "Weekly Warrior",
+            description: "Complete 20 tasks this week",
+            target: 20,
+            reward: { xp: 200, sp: 1 },
+            check: (data) => data.tasksCompletedThisWeek || 0
+          },
+          {
+            id: "complete_project",
+            name: "Project Finisher",
+            description: "Complete a project this week",
+            target: 1,
+            reward: { xp: 150, sp: 0 },
+            check: (data) => data.projectsCompletedThisWeek || 0
+          },
+          {
+            id: "spend_sp",
+            name: "Skill Investor",
+            description: "Spend 3 skill points this week",
+            target: 3,
+            reward: { xp: 100, sp: 1 },
+            check: (data) => data.spSpentThisWeek || 0
+          }
+        ]
+      };
+
+      // Title System
+      const TITLE_SYSTEM = {
+        level: [
+          { level: 0, title: "Novice" },
+          { level: 10, title: "Apprentice" },
+          { level: 25, title: "Adept" },
+          { level: 50, title: "Expert" },
+          { level: 75, title: "Master" },
+          { level: 100, title: "Grandmaster" },
+          { level: 150, title: "Legend" },
+          { level: 200, title: "Mythic" }
+        ],
+        achievement: {
+          streak: [
+            {
+              title: "Streak Master",
+              condition: (data) => data.maxStreak >= 30
+            },
+            {
+              title: "Consistency King",
+              condition: (data) => data.maxStreak >= 7
+            }
+          ],
+          focus: [
+            {
+              title: "Zen Master",
+              condition: (data) => data.totalFocusHours >= 100
+            },
+            {
+              title: "Focused",
+              condition: (data) => data.totalFocusHours >= 10
+            }
+          ]
+        },
+        special: [
+          {
+            title: "XP Master",
+            condition: (data) => data.maxDailyXP >= 10000
+          },
+          {
+            title: "Efficiency Expert",
+            condition: (data) => data.efficientTasks >= 100
+          },
+          {
+            title: "Dedicated",
+            condition: (data) => data.consecutiveDays >= 100
+          }
+        ]
+      };
+
+      // Smart Scheduling System
+      const SMART_SCHEDULING = {
+        analyzePatterns(log) {
+          const hourlyStats = {};
+          log.filter(e => e.type === "task").forEach(entry => {
+            const hour = new Date(entry.ts).getHours();
+            if (!hourlyStats[hour]) {
+              hourlyStats[hour] = { count: 0, totalXP: 0 };
+            }
+            hourlyStats[hour].count++;
+            hourlyStats[hour].totalXP += entry.amount || 0;
+          });
+          return hourlyStats;
+        },
+
+        suggestOptimalTime(category, taskType, difficulty, hourlyStats) {
+          // Simple heuristic based on common productivity patterns
+          const currentHour = new Date().getHours();
+          let recommendedTime = "9:00 AM - 11:00 AM";
+          let reasoning = "Morning hours typically show high productivity";
+          let confidence = 75;
+
+          if (category === "Training") {
+            recommendedTime = "6:00 AM - 8:00 AM or 6:00 PM - 8:00 PM";
+            reasoning = "Training sessions work best early morning or evening";
+            confidence = 85;
+          } else if (category === "Study" || category === "CS1010E" || category === "MA1301") {
+            recommendedTime = "9:00 AM - 12:00 PM";
+            reasoning = "Academic work is most effective in morning hours";
+            confidence = 80;
+          } else if (difficulty === "Hard" || difficulty === "Expert") {
+            recommendedTime = "10:00 AM - 12:00 PM";
+            reasoning = "Complex tasks require peak mental energy";
+            confidence = 85;
+          }
+
+          return { recommendedTime, reasoning, confidence };
+        },
+
+        getEnergyLevel() {
+          const hour = new Date().getHours();
+          let level = 0.5;
+          let description = "Moderate";
+
+          if (hour >= 6 && hour <= 10) {
+            level = 0.9;
+            description = "Peak Energy";
+          } else if (hour >= 11 && hour <= 14) {
+            level = 0.8;
+            description = "High Energy";
+          } else if (hour >= 15 && hour <= 17) {
+            level = 0.6;
+            description = "Moderate Energy";
+          } else if (hour >= 18 && hour <= 20) {
+            level = 0.7;
+            description = "Good Energy";
+          } else {
+            level = 0.4;
+            description = "Low Energy";
+          }
+
+          return { level, description };
+        }
+      };
+
       // ================== Storage Hook ==================
       function useLocalStorage(key, initialValue) {
         const [value, setValue] = useState(() => {
@@ -739,6 +954,23 @@
             });
           }
         }, [achievementData, achievements.unlocked]);
+
+        // Challenge data calculation
+        const challengeData = useMemo(() => {
+          const todayLogs = log.filter(e => e.date === todayISO());
+          const weekDays = lastNDates(7);
+          const weekLogs = log.filter(e => weekDays.includes(e.date));
+          
+          return {
+            tasksCompletedToday: todayLogs.filter(e => e.type === "task").length,
+            focusSessionsToday: todayLogs.filter(e => e.type === "passive").length,
+            earlyTasksToday: todayLogs.filter(e => e.type === "task" && new Date(e.ts).getHours() < 9).length,
+            tasksCompletedThisWeek: weekLogs.filter(e => e.type === "task").length,
+            projectsCompletedThisWeek: weekLogs.filter(e => e.type === "project").length,
+            spSpentThisWeek: weekLogs.filter(e => e.type === "sp_spend").reduce((sum, e) => sum + (e.amount || 0), 0),
+            ...achievementData
+          };
+        }, [log, todayISO(), lastNDates, achievementData]);
         
         // Auto XP Calculation Functions
         const suggestXP = (title, category, taskType, difficulty, estimatedTime) => {
@@ -1247,6 +1479,12 @@
             special: specialTitles
           };
         };
+
+        // Update current titles when data changes
+        useEffect(() => {
+          const newTitles = getCurrentTitles(level, achievementData);
+          setCurrentTitles(newTitles);
+        }, [level, achievementData]);
 
         const checkChallengeProgress = (challengeData) => {
           const dailyProgress = CHALLENGES.daily.map(challenge => ({
