@@ -349,6 +349,19 @@
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
 
+        // NEW: Challenge and template state
+        const [challenges, setChallenges] = useLocalStorage("lifexp.challenges", { 
+          daily: { completed: [], lastReset: todayISO() },
+          weekly: { completed: [], lastReset: isoWeekKey() }
+        });
+        const [templates, setTemplates] = useLocalStorage("lifexp.templates", TASK_TEMPLATES);
+        const [currentTitles, setCurrentTitles] = useLocalStorage("lifexp.titles", { 
+          level: "Novice", 
+          branch: {}, 
+          achievement: [], 
+          special: [] 
+        });
+
         // Settings (dark, caps)
         const DEFAULT_CAPS = { total: 200, perCat: 100 };
         const [theme, setTheme] = useLocalStorage("lifexp.theme", "dark"); // "dark" | "light"
@@ -360,6 +373,8 @@
 
         // UI misc
         const [alerts, setAlerts] = useState([]);
+        const [showTemplates, setShowTemplates] = useState(false);
+        const [showSmartScheduling, setShowSmartScheduling] = useState(false);
 
         // Theme effect
         useEffect(()=>{
@@ -389,7 +404,7 @@
           setIsSyncing(true);
           try {
             const currentData = {
-              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme
+              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles
             };
             
             const syncedData = await cloudBackup.syncData(currentData);
@@ -407,6 +422,9 @@
             if (syncedData.log) setLog(syncedData.log);
             if (syncedData.settings) setSettings(syncedData.settings);
             if (syncedData.theme) setTheme(syncedData.theme);
+            if (syncedData.challenges) setChallenges(syncedData.challenges);
+            if (syncedData.templates) setTemplates(syncedData.templates);
+            if (syncedData.currentTitles) setCurrentTitles(syncedData.currentTitles);
             
             pushAlert("Data synced with cloud ✓");
           } catch (error) {
@@ -421,14 +439,14 @@
           if (cloudBackup.isAuthenticated() && !isSyncing) {
             const timeoutId = setTimeout(() => {
               const currentData = {
-                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme
+                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles
               };
               cloudBackup.syncData(currentData);
             }, 2000); // Debounce for 2 seconds
             
             return () => clearTimeout(timeoutId);
           }
-        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme]);
+        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles]);
 
         // Authentication functions
         const handleAuth = async (e) => {
@@ -1197,6 +1215,125 @@
 
         const [showSettings, setShowSettings] = useState(false);
 
+        // ================== NEW: Challenge Functions ==================
+        const getCurrentTitles = (level, achievementData) => {
+          // Level-based title
+          const levelTitle = TITLE_SYSTEM.level
+            .filter(t => level >= t.level)
+            .sort((a, b) => b.level - a.level)[0] || TITLE_SYSTEM.level[0];
+
+          // Branch titles (would need branch XP tracking)
+          const branchTitles = {};
+
+          // Achievement titles
+          const achievementTitles = [];
+          Object.values(TITLE_SYSTEM.achievement).forEach(category => {
+            category.forEach(title => {
+              if (title.condition(achievementData)) {
+                achievementTitles.push(title);
+              }
+            });
+          });
+
+          // Special titles
+          const specialTitles = TITLE_SYSTEM.special.filter(title => 
+            title.condition(achievementData)
+          );
+
+          return {
+            level: levelTitle.title,
+            branch: branchTitles,
+            achievement: achievementTitles,
+            special: specialTitles
+          };
+        };
+
+        const checkChallengeProgress = (challengeData) => {
+          const dailyProgress = CHALLENGES.daily.map(challenge => ({
+            ...challenge,
+            progress: challenge.check(challengeData),
+            completed: challenges.daily.completed.includes(challenge.id)
+          }));
+
+          const weeklyProgress = CHALLENGES.weekly.map(challenge => ({
+            ...challenge,
+            progress: challenge.check(challengeData),
+            completed: challenges.weekly.completed.includes(challenge.id)
+          }));
+
+          return { daily: dailyProgress, weekly: weeklyProgress };
+        };
+
+        const completeChallenge = (challengeId, isWeekly = false) => {
+          const challenge = isWeekly 
+            ? CHALLENGES.weekly.find(c => c.id === challengeId)
+            : CHALLENGES.daily.find(c => c.id === challengeId);
+          
+          if (!challenge) return;
+
+          // Award rewards
+          if (challenge.reward.xp > 0) {
+            setXp(x => x + challenge.reward.xp);
+          }
+          if (challenge.reward.sp > 0) {
+            setSkill(s => ({ ...s, points: (s.points || 0) + challenge.reward.sp }));
+          }
+
+          // Mark as completed
+          if (isWeekly) {
+            setChallenges(prev => ({
+              ...prev,
+              weekly: { ...prev.weekly, completed: [...prev.weekly.completed, challengeId] }
+            }));
+          } else {
+            setChallenges(prev => ({
+              ...prev,
+              daily: { ...prev.daily, completed: [...prev.daily.completed, challengeId] }
+            }));
+          }
+
+          pushAlert(`Challenge completed: ${challenge.name} (+${challenge.reward.xp} XP${challenge.reward.sp > 0 ? `, +${challenge.reward.sp} SP` : ''})`);
+        };
+
+        const applyTemplate = (templateName) => {
+          const template = templates[templateName];
+          if (!template) return;
+
+          setForm({
+            title: templateName,
+            category: template.category,
+            taskType: template.taskType,
+            difficulty: template.difficulty,
+            baseXP: template.baseXP,
+            estimateMin: template.estimateMin,
+            suggestedXP: template.baseXP,
+            showAdvanced: false
+          });
+        };
+
+        const createCustomTemplate = () => {
+          const templateName = prompt("Template name:");
+          if (!templateName || !form.title) return;
+
+          const newTemplate = {
+            category: form.category,
+            taskType: form.taskType,
+            difficulty: form.difficulty,
+            baseXP: form.baseXP,
+            estimateMin: form.estimateMin,
+            description: form.title
+          };
+
+          setTemplates(prev => ({ ...prev, [templateName]: newTemplate }));
+          pushAlert(`Template "${templateName}" created!`);
+        };
+
+        // ================== NEW: Smart Scheduling Functions ==================
+        const getSmartSuggestion = (category, taskType, difficulty) => {
+          const hourlyStats = SMART_SCHEDULING.analyzePatterns(log);
+          return SMART_SCHEDULING.suggestOptimalTime(category, taskType, difficulty, hourlyStats);
+        };
+
         return (
           <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
             <div className="max-w-6xl mx-auto">
@@ -1832,6 +1969,192 @@
                   <>Data synced to cloud • Last sync: {cloudBackup.lastSyncTime ? cloudBackup.lastSyncTime.toLocaleString() : 'Never'} • Export/import available</>
                 ) : (
                   <>Data stored locally • Sign in to sync across devices • Export/import available</>
+                )}
+              </div>
+
+              {/* NEW: Current Titles */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <h2 className="text-xl font-semibold mb-3">Current Titles</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="p-3 rounded-xl bg-indigo-950/40 border border-indigo-800">
+                    <div className="text-sm text-indigo-300">Level Title</div>
+                    <div className="text-lg font-semibold text-indigo-200">{currentTitles.level}</div>
+                  </div>
+                  {currentTitles.achievement.length > 0 && (
+                    <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800">
+                      <div className="text-sm text-emerald-300">Achievement</div>
+                      <div className="text-lg font-semibold text-emerald-200">{currentTitles.achievement[0].title}</div>
+                    </div>
+                  )}
+                  {currentTitles.special.length > 0 && (
+                    <div className="p-3 rounded-xl bg-amber-950/40 border border-amber-800">
+                      <div className="text-sm text-amber-300">Special</div>
+                      <div className="text-lg font-semibold text-amber-200">{currentTitles.special[0].title}</div>
+                    </div>
+                  )}
+                  <div className="p-3 rounded-xl bg-neutral-800 border border-neutral-700">
+                    <div className="text-sm text-neutral-400">Total Titles</div>
+                    <div className="text-lg font-semibold text-neutral-200">
+                      {1 + currentTitles.achievement.length + currentTitles.special.length}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NEW: Daily/Weekly Challenges */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <h2 className="text-xl font-semibold mb-3">Challenges</h2>
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Daily Challenges */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-emerald-400">Daily Challenges</h3>
+                    <div className="space-y-3">
+                      {checkChallengeProgress(challengeData).daily.map(challenge => (
+                        <div key={challenge.id} className={`p-3 rounded-xl border ${
+                          challenge.completed ? 'bg-emerald-950/40 border-emerald-800' : 'bg-neutral-800 border-neutral-700'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-semibold">{challenge.name}</div>
+                            <div className="text-sm text-neutral-400">
+                              {challenge.progress}/{challenge.target}
+                            </div>
+                          </div>
+                          <div className="text-sm text-neutral-300 mb-2">{challenge.description}</div>
+                          <div className="w-full bg-neutral-700 rounded-full h-2 mb-2">
+                            <div 
+                              className="bg-emerald-500 h-2 rounded-full transition-all duration-300" 
+                              style={{ width: `${Math.min(100, (challenge.progress / challenge.target) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-neutral-400">
+                            Reward: +{challenge.reward.xp} XP{challenge.reward.sp > 0 ? `, +${challenge.reward.sp} SP` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Weekly Challenges */}
+                  <div>
+                    <h3 className="text-lg font-semibold mb-3 text-indigo-400">Weekly Challenges</h3>
+                    <div className="space-y-3">
+                      {checkChallengeProgress(challengeData).weekly.map(challenge => (
+                        <div key={challenge.id} className={`p-3 rounded-xl border ${
+                          challenge.completed ? 'bg-indigo-950/40 border-indigo-800' : 'bg-neutral-800 border-neutral-700'
+                        }`}>
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="font-semibold">{challenge.name}</div>
+                            <div className="text-sm text-neutral-400">
+                              {challenge.progress}/{challenge.target}
+                            </div>
+                          </div>
+                          <div className="text-sm text-neutral-300 mb-2">{challenge.description}</div>
+                          <div className="w-full bg-neutral-700 rounded-full h-2 mb-2">
+                            <div 
+                              className="bg-indigo-500 h-2 rounded-full transition-all duration-300" 
+                              style={{ width: `${Math.min(100, (challenge.progress / challenge.target) * 100)}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-neutral-400">
+                            Reward: +{challenge.reward.xp} XP{challenge.reward.sp > 0 ? `, +${challenge.reward.sp} SP` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* NEW: Task Templates */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">Task Templates</h2>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => setShowTemplates(!showTemplates)}
+                      className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm shadow"
+                    >
+                      {showTemplates ? 'Hide' : 'Show'} Templates
+                    </button>
+                    <button 
+                      onClick={createCustomTemplate}
+                      className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-sm shadow"
+                    >
+                      Save Current as Template
+                    </button>
+                  </div>
+                </div>
+                
+                {showTemplates && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {Object.entries(templates).map(([name, template]) => (
+                      <div key={name} className="p-3 rounded-xl bg-neutral-800 border border-neutral-700 hover:border-neutral-600 cursor-pointer"
+                           onClick={() => applyTemplate(name)}>
+                        <div className="font-semibold text-sm mb-1">{name}</div>
+                        <div className="text-xs text-neutral-400 mb-2">{template.description}</div>
+                        <div className="text-xs text-neutral-500">
+                          {template.category} • {template.taskType} • {template.difficulty}
+                        </div>
+                        <div className="text-xs text-neutral-500">
+                          {template.baseXP} XP • {template.estimateMin} min
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* NEW: Smart Scheduling */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-8">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">Smart Scheduling</h2>
+                  <button 
+                    onClick={() => setShowSmartScheduling(!showSmartScheduling)}
+                    className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm shadow"
+                  >
+                    {showSmartScheduling ? 'Hide' : 'Show'} Suggestions
+                  </button>
+                </div>
+                
+                {showSmartScheduling && (
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                      <h3 className="font-semibold mb-2">Current Energy Level</h3>
+                      <div className="flex items-center gap-3">
+                        <div className="text-2xl">
+                          {SMART_SCHEDULING.getEnergyLevel().level >= 0.8 ? '⚡' : 
+                           SMART_SCHEDULING.getEnergyLevel().level >= 0.6 ? '🔋' : '😴'}
+                        </div>
+                        <div>
+                          <div className="font-semibold">{SMART_SCHEDULING.getEnergyLevel().description}</div>
+                          <div className="text-sm text-neutral-400">
+                            Energy: {Math.round(SMART_SCHEDULING.getEnergyLevel().level * 100)}%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                      <h3 className="font-semibold mb-2">Optimal Time for Current Task</h3>
+                      {form.title && (
+                        <div>
+                          {(() => {
+                            const suggestion = getSmartSuggestion(form.category, form.taskType, form.difficulty);
+                            return (
+                              <div>
+                                <div className="text-lg font-semibold text-emerald-400">{suggestion.recommendedTime}</div>
+                                <div className="text-sm text-neutral-300">{suggestion.reasoning}</div>
+                                <div className="text-xs text-neutral-400">Confidence: {suggestion.confidence}%</div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                      {!form.title && (
+                        <div className="text-neutral-400">Start typing a task to see scheduling suggestions</div>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
