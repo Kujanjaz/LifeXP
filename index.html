@@ -122,6 +122,152 @@
         efficiency: { key: "efficiency", name: "Efficiency", desc: "+1 base XP to tasks per lvl (max +10).", max: 10, cost: lvl => 1 + lvl },
       };
 
+      // ================== ML-Enhanced XP System ==================
+      
+      // Objective Academic Knowledge Database
+      const ACADEMIC_DIFFICULTY_MATRIX = {
+        'Math': {
+          'Arithmetic Foundations': { baseDifficulty: 1.0, cognitiveLoad: 'low' },
+          'Algebra I': { baseDifficulty: 1.2, cognitiveLoad: 'medium' },
+          'Algebra II': { baseDifficulty: 1.4, cognitiveLoad: 'medium-high' },
+          'Trigonometry': { baseDifficulty: 1.6, cognitiveLoad: 'high' },
+          'Calculus': { baseDifficulty: 2.0, cognitiveLoad: 'very-high' },
+          'Differential Equations': { baseDifficulty: 2.5, cognitiveLoad: 'very-high' },
+          'Linear Algebra': { baseDifficulty: 2.2, cognitiveLoad: 'very-high' },
+          'Real Analysis': { baseDifficulty: 3.0, cognitiveLoad: 'extremely-high' },
+          'Statistics': { baseDifficulty: 1.8, cognitiveLoad: 'high' },
+          'Probability': { baseDifficulty: 2.0, cognitiveLoad: 'very-high' }
+        },
+        'Programming': {
+          'Basic Syntax': { baseDifficulty: 1.0, cognitiveLoad: 'low' },
+          'Control Structures': { baseDifficulty: 1.3, cognitiveLoad: 'medium' },
+          'Data Structures': { baseDifficulty: 1.8, cognitiveLoad: 'high' },
+          'Algorithms': { baseDifficulty: 2.2, cognitiveLoad: 'very-high' },
+          'System Design': { baseDifficulty: 2.8, cognitiveLoad: 'extremely-high' },
+          'Machine Learning': { baseDifficulty: 2.5, cognitiveLoad: 'very-high' },
+          'Web Development': { baseDifficulty: 1.6, cognitiveLoad: 'high' },
+          'Database Design': { baseDifficulty: 1.9, cognitiveLoad: 'high' }
+        },
+        'Economics': {
+          'Microeconomics': { baseDifficulty: 1.4, cognitiveLoad: 'medium-high' },
+          'Macroeconomics': { baseDifficulty: 1.6, cognitiveLoad: 'high' },
+          'Econometrics': { baseDifficulty: 2.2, cognitiveLoad: 'very-high' },
+          'Game Theory': { baseDifficulty: 2.0, cognitiveLoad: 'very-high' },
+          'Financial Economics': { baseDifficulty: 1.8, cognitiveLoad: 'high' },
+          'Behavioral Economics': { baseDifficulty: 1.7, cognitiveLoad: 'high' }
+        },
+        'History': {
+          'Ancient History': { baseDifficulty: 1.2, cognitiveLoad: 'medium' },
+          'Medieval History': { baseDifficulty: 1.3, cognitiveLoad: 'medium' },
+          'Modern History': { baseDifficulty: 1.4, cognitiveLoad: 'medium-high' },
+          'Economic History': { baseDifficulty: 1.6, cognitiveLoad: 'high' },
+          'Historiography': { baseDifficulty: 1.8, cognitiveLoad: 'high' },
+          'Research Methods': { baseDifficulty: 1.9, cognitiveLoad: 'high' }
+        }
+      };
+
+      // Task Type Complexity Database (Educational Research)
+      const TASK_COMPLEXITY_DATABASE = {
+        'Passive Learning': {
+          'Lecture': { cognitiveLoad: 0.7, timeMultiplier: 1.0, retention: 0.3 },
+          'Reading': { cognitiveLoad: 0.8, timeMultiplier: 1.1, retention: 0.5 },
+          'Video Tutorial': { cognitiveLoad: 0.9, timeMultiplier: 1.2, retention: 0.4 },
+          'Documentation': { cognitiveLoad: 0.6, timeMultiplier: 1.0, retention: 0.4 }
+        },
+        'Active Learning': {
+          'Practice Problems': { cognitiveLoad: 1.2, timeMultiplier: 1.3, retention: 0.7 },
+          'Homework Set': { cognitiveLoad: 1.5, timeMultiplier: 1.6, retention: 0.8 },
+          'Problem Solving': { cognitiveLoad: 1.8, timeMultiplier: 1.8, retention: 0.9 },
+          'Project Work': { cognitiveLoad: 2.0, timeMultiplier: 2.0, retention: 0.95 },
+          'Exercise': { cognitiveLoad: 1.1, timeMultiplier: 1.2, retention: 0.6 },
+          'Assignment': { cognitiveLoad: 1.6, timeMultiplier: 1.7, retention: 0.85 }
+        },
+        'Assessment': {
+          'Quiz': { cognitiveLoad: 1.4, timeMultiplier: 1.2, retention: 0.6 },
+          'Exam Prep': { cognitiveLoad: 1.8, timeMultiplier: 1.6, retention: 0.7 },
+          'Test': { cognitiveLoad: 2.2, timeMultiplier: 1.8, retention: 0.8 },
+          'Final Exam': { cognitiveLoad: 2.5, timeMultiplier: 2.2, retention: 0.9 }
+        },
+        'Creative Work': {
+          'Essay': { cognitiveLoad: 1.7, timeMultiplier: 1.9, retention: 0.8 },
+          'Research Paper': { cognitiveLoad: 2.0, timeMultiplier: 2.1, retention: 0.9 },
+          'Presentation': { cognitiveLoad: 1.6, timeMultiplier: 1.8, retention: 0.75 },
+          'Portfolio': { cognitiveLoad: 1.9, timeMultiplier: 2.0, retention: 0.85 }
+        }
+      };
+
+      // Prerequisite Knowledge Mapping
+      const PREREQUISITE_MAP = {
+        'Differential Equations': {
+          prerequisites: ['Calculus', 'Linear Algebra'],
+          difficultyMultiplier: 1.3,
+          knowledgeGaps: { 'Calculus': 0.8, 'Linear Algebra': 0.6 }
+        },
+        'Machine Learning': {
+          prerequisites: ['Statistics', 'Linear Algebra', 'Programming'],
+          difficultyMultiplier: 1.5,
+          knowledgeGaps: { 'Statistics': 0.7, 'Linear Algebra': 0.8, 'Programming': 0.6 }
+        },
+        'Econometrics': {
+          prerequisites: ['Statistics', 'Macroeconomics'],
+          difficultyMultiplier: 1.4,
+          knowledgeGaps: { 'Statistics': 0.9, 'Macroeconomics': 0.7 }
+        },
+        'Real Analysis': {
+          prerequisites: ['Calculus', 'Proof Techniques'],
+          difficultyMultiplier: 1.6,
+          knowledgeGaps: { 'Calculus': 0.9, 'Proof Techniques': 0.8 }
+        }
+      };
+
+      // Research-Based Foundation Values (Academic Standards)
+      const RESEARCH_FOUNDATION = {
+        // Time-based learning research (Bloom's Taxonomy + cognitive load theory)
+        timeMultipliers: {
+          'recognition': 0.8,      // Simple recognition tasks
+          'comprehension': 1.0,    // Understanding concepts
+          'application': 1.3,      // Applying knowledge
+          'analysis': 1.6,         // Breaking down complex problems
+          'synthesis': 1.8,        // Creating new solutions
+          'evaluation': 2.0        // Critical assessment
+        },
+        
+        // Subject complexity weights (based on cognitive demand research)
+        subjectComplexity: {
+          'Math': 1.4,           // High cognitive load
+          'Programming': 1.5,    // Very high cognitive load
+          'Economics': 1.2,      // Medium-high cognitive load
+          'History': 1.1,        // Medium cognitive load
+          'Language': 1.0,       // Baseline
+          'General': 1.0         // Baseline
+        },
+        
+        // Task type difficulty (based on educational research)
+        taskTypeDifficulty: {
+          'Lecture': 0.7,        // Passive learning
+          'Reading': 0.8,        // Active reading
+          'Practice': 1.0,       // Basic practice
+          'Exercise': 1.1,       // Guided practice
+          'Problem Set': 1.3,    // Independent problem solving
+          'Assignment': 1.5,     // Extended work
+          'Project': 1.8,        // Complex integration
+          'Exam Prep': 1.6,      // High-stakes preparation
+          'Quiz Prep': 1.2,      // Quick preparation
+          'Test': 2.0,           // Assessment
+          'Tutorial': 0.9,       // Guided instruction
+          'Review': 0.6,         // Reinforcement
+          'Vocabulary': 0.5,     // Memorization
+          'Grammar': 0.8,        // Pattern recognition
+          'Conversation': 1.2,   // Active communication
+          'Writing': 1.4,        // Creative expression
+          'Workout': 1.0,        // Physical activity
+          'Cardio': 0.9,         // Endurance
+          'Strength': 1.1,       // Resistance training
+          'Flexibility': 0.7,    // Mobility
+          'Sports': 1.2          // Competitive activity
+        }
+      };
+
       // Auto XP Calculation System
       const XP_MATRIX = {
         'CS1010E': { 
@@ -138,6 +284,291 @@
         },
         'Language': { 
           'Vocabulary': 10, 'Grammar': 15, 'Conversation': 25, 'Reading': 20, 'Writing': 30
+        }
+      };
+
+      // ML Learning System
+      const ML_SYSTEM = {
+        // Pattern recognition for user behavior
+        analyzePatterns(userHistory) {
+          const patterns = {
+            categoryPreferences: {},
+            difficultyTendencies: {},
+            timeEfficiency: {},
+            completionRates: {},
+            adjustmentHistory: []
+          };
+
+          // Analyze category patterns
+          userHistory.forEach(entry => {
+            if (entry.category) {
+              patterns.categoryPreferences[entry.category] = 
+                (patterns.categoryPreferences[entry.category] || 0) + 1;
+            }
+          });
+
+          // Analyze difficulty tendencies
+          userHistory.forEach(entry => {
+            if (entry.difficulty) {
+              patterns.difficultyTendencies[entry.difficulty] = 
+                (patterns.difficultyTendencies[entry.difficulty] || 0) + 1;
+            }
+          });
+
+          // Analyze time efficiency (estimated vs actual)
+          userHistory.forEach(entry => {
+            if (entry.estimateMin && entry.actualMin) {
+              const efficiency = entry.actualMin / entry.estimateMin;
+              const key = `${entry.category}-${entry.taskType}`;
+              if (!patterns.timeEfficiency[key]) {
+                patterns.timeEfficiency[key] = [];
+              }
+              patterns.timeEfficiency[key].push(efficiency);
+            }
+          });
+
+          // Calculate average efficiency per category/task type
+          Object.keys(patterns.timeEfficiency).forEach(key => {
+            const efficiencies = patterns.timeEfficiency[key];
+            patterns.timeEfficiency[key] = {
+              average: efficiencies.reduce((a, b) => a + b, 0) / efficiencies.length,
+              count: efficiencies.length,
+              consistency: 1 - (Math.max(...efficiencies) - Math.min(...efficiencies)) / Math.max(...efficiencies)
+            };
+          });
+
+          return patterns;
+        },
+
+        // Learn from user adjustments
+        learnFromAdjustments(adjustments, patterns) {
+          const learning = {
+            categoryBias: {},
+            difficultyBias: {},
+            timeBias: {},
+            confidence: 0.5 // Start with moderate confidence
+          };
+
+          // Analyze adjustment patterns
+          Object.entries(adjustments).forEach(([key, adjustment]) => {
+            const [category, taskType, difficulty] = key.split('-');
+            
+            if (!learning.categoryBias[category]) {
+              learning.categoryBias[category] = [];
+            }
+            learning.categoryBias[category].push(adjustment);
+
+            if (!learning.difficultyBias[difficulty]) {
+              learning.difficultyBias[difficulty] = [];
+            }
+            learning.difficultyBias[difficulty].push(adjustment);
+          });
+
+          // Calculate average biases
+          Object.keys(learning.categoryBias).forEach(category => {
+            const adjustments = learning.categoryBias[category];
+            learning.categoryBias[category] = adjustments.reduce((a, b) => a + b, 0) / adjustments.length;
+          });
+
+          Object.keys(learning.difficultyBias).forEach(difficulty => {
+            const adjustments = learning.difficultyBias[difficulty];
+            learning.difficultyBias[difficulty] = adjustments.reduce((a, b) => a + b, 0) / adjustments.length;
+          });
+
+          // Calculate confidence based on consistency
+          const allAdjustments = Object.values(adjustments);
+          if (allAdjustments.length > 5) {
+            const avgAdjustment = allAdjustments.reduce((a, b) => a + b, 0) / allAdjustments.length;
+            const variance = allAdjustments.reduce((sum, adj) => sum + Math.pow(adj - avgAdjustment, 2), 0) / allAdjustments.length;
+            learning.confidence = Math.max(0.3, Math.min(0.9, 1 - (variance / 0.5))); // Normalize variance
+          }
+
+          return learning;
+        },
+
+        // Predict optimal XP based on learned patterns
+        predictOptimalXP(subject, subSkill, taskType, difficulty, estimatedTime, patterns, learning, userLevel = 5) {
+          // Enhanced objective calculation using academic knowledge
+          const objectiveXP = this.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
+          
+          // Apply learned biases
+          let adjustedXP = objectiveXP;
+          
+          // Category bias
+          if (learning.categoryBias[subject]) {
+            adjustedXP *= learning.categoryBias[subject];
+          }
+          
+          // Difficulty bias
+          if (learning.difficultyBias[difficulty]) {
+            adjustedXP *= learning.difficultyBias[difficulty];
+          }
+          
+          // Time efficiency adjustment
+          const efficiencyKey = `${subject}-${taskType}`;
+          if (patterns.timeEfficiency[efficiencyKey]) {
+            const { average, consistency } = patterns.timeEfficiency[efficiencyKey];
+            // If user consistently finishes early, boost XP; if consistently late, reduce
+            const timeAdjustment = average < 1.0 ? 1.1 : (average > 1.2 ? 0.9 : 1.0);
+            adjustedXP *= timeAdjustment;
+          }
+          
+          // Apply confidence weighting
+          const confidenceWeight = learning.confidence;
+          const finalXP = Math.round(objectiveXP * confidenceWeight + adjustedXP * (1 - confidenceWeight));
+          
+          return {
+            xp: Math.max(5, finalXP),
+            confidence: learning.confidence,
+            breakdown: {
+              objective: objectiveXP,
+              categoryBias: learning.categoryBias[subject] || 1.0,
+              difficultyBias: learning.difficultyBias[difficulty] || 1.0,
+              timeAdjustment: patterns.timeEfficiency[efficiencyKey]?.average || 1.0,
+              confidence: confidenceWeight
+            }
+          };
+        },
+
+        // Enhanced objective XP calculation with academic knowledge
+        calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) {
+          // Get objective difficulty from academic knowledge base
+          const topicDifficulty = ACADEMIC_DIFFICULTY_MATRIX[subject]?.[subSkill] || { baseDifficulty: 1.0 };
+          
+          // Find task complexity from educational research database
+          let taskComplexity = null;
+          for (const category of Object.keys(TASK_COMPLEXITY_DATABASE)) {
+            if (TASK_COMPLEXITY_DATABASE[category][taskType]) {
+              taskComplexity = TASK_COMPLEXITY_DATABASE[category][taskType];
+              break;
+            }
+          }
+          
+          // Default task complexity if not found
+          if (!taskComplexity) {
+            taskComplexity = { cognitiveLoad: 1.0, timeMultiplier: 1.0, retention: 0.6 };
+          }
+          
+          // Check for prerequisite knowledge gaps
+          const prerequisite = PREREQUISITE_MAP[subSkill];
+          let prerequisiteMultiplier = 1.0;
+          if (prerequisite) {
+            prerequisiteMultiplier = prerequisite.difficultyMultiplier;
+          }
+          
+          // Calculate base XP using objective data
+          let baseXP = 15; // Minimum meaningful XP
+          
+          // Apply objective difficulty multipliers
+          baseXP *= topicDifficulty.baseDifficulty; // Academic difficulty
+          baseXP *= taskComplexity.cognitiveLoad; // Task type complexity
+          baseXP *= prerequisiteMultiplier; // Prerequisite knowledge gaps
+          
+          // Difficulty multiplier (user-selected)
+          const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[difficulty] || 1.0;
+          baseXP *= difficultyMultiplier;
+          
+          // Time-based scaling (educational research)
+          let timeMultiplier = 1.0;
+          if (estimatedTime) {
+            // More sophisticated time scaling based on task complexity
+            const baseTimeMultiplier = Math.min(2.0, 1.0 + (estimatedTime / 60) * 0.5);
+            timeMultiplier = baseTimeMultiplier * taskComplexity.timeMultiplier;
+          }
+          baseXP *= timeMultiplier;
+          
+          // User level adjustment (beginner vs advanced)
+          const levelMultiplier = Math.max(0.5, Math.min(1.5, 1.0 + (userLevel - 5) * 0.1));
+          baseXP *= levelMultiplier;
+          
+          return Math.max(5, Math.round(baseXP));
+        },
+
+        // Calculate foundation XP using research standards (legacy)
+        calculateFoundationXP(category, taskType, difficulty, estimatedTime) {
+          // Base XP from cognitive load theory
+          const cognitiveLevel = RESEARCH_FOUNDATION.taskTypeDifficulty[taskType] || 1.0;
+          const subjectWeight = RESEARCH_FOUNDATION.subjectComplexity[category] || 1.0;
+          
+          // Time-based multiplier (diminishing returns for very long tasks)
+          let timeMultiplier = 1.0;
+          if (estimatedTime) {
+            if (estimatedTime <= 15) timeMultiplier = 0.7;
+            else if (estimatedTime <= 30) timeMultiplier = 1.0;
+            else if (estimatedTime <= 60) timeMultiplier = 1.3;
+            else if (estimatedTime <= 120) timeMultiplier = 1.6;
+            else timeMultiplier = 1.8; // Cap at 3+ hours
+          }
+          
+          // Difficulty multiplier
+          const difficultyMultiplier = DIFFICULTY_MULTIPLIERS[difficulty] || 1.0;
+          
+          // Calculate foundation XP
+          const baseXP = 15; // Minimum meaningful XP
+          const foundationXP = Math.round(
+            baseXP * 
+            cognitiveLevel * 
+            subjectWeight * 
+            timeMultiplier * 
+            difficultyMultiplier
+          );
+          
+          return Math.max(5, foundationXP);
+        },
+
+        // Generate insights for user
+        generateInsights(patterns, learning, userHistory) {
+          const insights = [];
+          
+          // Category preference insights
+          const topCategories = Object.entries(patterns.categoryPreferences)
+            .sort(([,a], [,b]) => b - a)
+            .slice(0, 3);
+          
+          if (topCategories.length > 0) {
+            insights.push({
+              type: 'category_preference',
+              title: 'Most Active Categories',
+              description: `You focus most on ${topCategories.map(([cat, count]) => `${cat} (${count} tasks)`).join(', ')}`,
+              recommendation: 'Consider balancing your learning across different subjects for well-rounded growth.'
+            });
+          }
+          
+          // Efficiency insights
+          const efficiencyData = Object.entries(patterns.timeEfficiency)
+            .filter(([, data]) => data.count >= 3)
+            .sort(([,a], [,b]) => a.average - b.average);
+          
+          if (efficiencyData.length > 0) {
+            const mostEfficient = efficiencyData[0];
+            const leastEfficient = efficiencyData[efficiencyData.length - 1];
+            
+            insights.push({
+              type: 'efficiency',
+              title: 'Time Efficiency Analysis',
+              description: `You're most efficient with ${mostEfficient[0]} (${(mostEfficient[1].average * 100).toFixed(0)}% of estimated time) and least efficient with ${leastEfficient[0]} (${(leastEfficient[1].average * 100).toFixed(0)}% of estimated time)`,
+              recommendation: `Consider breaking down ${leastEfficient[0]} into smaller tasks or adjusting your time estimates.`
+            });
+          }
+          
+          // Learning confidence insights
+          if (learning.confidence > 0.7) {
+            insights.push({
+              type: 'confidence',
+              title: 'High Learning Confidence',
+              description: `The system has ${Math.round(learning.confidence * 100)}% confidence in predicting your XP needs`,
+              recommendation: 'The ML system is well-calibrated to your preferences. Trust the suggestions!'
+            });
+          } else if (learning.confidence < 0.5) {
+            insights.push({
+              type: 'confidence',
+              title: 'Learning in Progress',
+              description: `The system has ${Math.round(learning.confidence * 100)}% confidence in predicting your XP needs`,
+              recommendation: 'Continue completing tasks to help the system learn your preferences better.'
+            });
+          }
+          
+          return insights;
         }
       };
 
@@ -930,170 +1361,188 @@
       // ================== Tab Components ==================
       
       function SkillsTab({ activeSubject, setActiveSubject, subjectXP, subSkillProgress, setForm, log, setActiveTab }) {
-        const [skillTreeView, setSkillTreeView] = useState('traditional'); // 'traditional' or 'poe'
+        const [expandedSubjects, setExpandedSubjects] = useState({});
+        const [expandedMainSkills, setExpandedMainSkills] = useState({});
+        
+        const toggleSubject = (subject) => {
+          setExpandedSubjects(prev => ({
+            ...prev,
+            [subject]: !prev[subject]
+          }));
+        };
+        
+        const toggleMainSkill = (mainSkillId) => {
+          setExpandedMainSkills(prev => ({
+            ...prev,
+            [mainSkillId]: !prev[mainSkillId]
+          }));
+        };
         
         return (
           <div className="space-y-6">
-            {/* View Toggle */}
+            {/* Hierarchical Skill Tree */}
             <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Skill Tree View</h2>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setSkillTreeView('traditional')}
-                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                      skillTreeView === 'traditional'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                    }`}
-                  >
-                    Traditional
-                  </button>
-                  <button
-                    onClick={() => setSkillTreeView('poe')}
-                    className={`px-4 py-2 rounded-xl font-semibold transition-all ${
-                      skillTreeView === 'poe'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700'
-                    }`}
-                  >
-                    Path of Exile Style
-                  </button>
-                </div>
+              <h2 className="text-xl font-semibold mb-4">Skill Tree</h2>
+              <div className="text-sm text-neutral-400 mb-6">
+                Click on subjects and skills to expand/collapse. Click on sub-skills to create tasks.
               </div>
-            </div>
 
-            {/* Subject Selection */}
-            <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
-              <h2 className="text-xl font-semibold mb-4">Subject Skills</h2>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                {Object.entries(SUBJECTS).map(([subjectId, subject]) => (
-                  <button
-                    key={subjectId}
-                    onClick={() => setActiveSubject(subjectId)}
-                    className={`p-4 rounded-xl border transition-all ${
-                      activeSubject === subjectId
-                        ? 'bg-blue-600 border-blue-500 text-white'
-                        : 'bg-neutral-800 border-neutral-700 hover:border-neutral-600'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xl">{subject.icon}</span>
-                      <div className="font-semibold">{subject.name}</div>
-                    </div>
-                    <div className="text-sm opacity-75">
-                      Level {XP_SYSTEM.getSubjectLevel(subjectXP[subjectId] || 0)} • {subjectXP[subjectId] || 0} XP
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {skillTreeView === 'traditional' ? (
-              /* Traditional Skill Tree */
-              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
-                <h2 className="text-xl font-semibold mb-4">
-                  {SUBJECTS[activeSubject]?.icon} {SUBJECTS[activeSubject]?.name} Skill Tree
-                </h2>
-                
-                <div className="space-y-6">
-                  {SKILL_TREES[activeSubject] && Object.entries(SKILL_TREES[activeSubject].mainSkills).map(([mainSkillId, mainSkill]) => {
-                    const mainSkillXP = Object.keys(mainSkill.subSkills).reduce((total, subSkillId) => {
-                      return total + (subSkillProgress[subSkillId]?.xp || 0);
-                    }, 0);
-                    const isMainSkillUnlocked = XP_SYSTEM.isSkillUnlocked(mainSkill, { 
-                      tasksCompleted: log.filter(e => e.type === "task").length 
-                    });
-                    
-                    return (
-                      <div key={mainSkillId} className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h3 className="text-lg font-semibold">{mainSkill.name}</h3>
-                            <div className="text-sm text-neutral-400">{mainSkillXP} XP total</div>
-                          </div>
-                          <div className={`px-3 py-1 rounded-full text-sm ${
-                            isMainSkillUnlocked 
-                              ? 'bg-green-900/50 text-green-200 border border-green-800'
-                              : 'bg-neutral-700 text-neutral-400 border border-neutral-600'
-                          }`}>
-                            {isMainSkillUnlocked ? 'Unlocked' : 'Locked'}
-                          </div>
-                        </div>
-                        
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => {
-                            const progress = subSkillProgress[subSkillId] || { xp: 0, tasksCompleted: 0 };
-                            const isUnlocked = XP_SYSTEM.isSkillUnlocked(subSkill, progress);
-                            const masteryLevel = XP_SYSTEM.getMasteryLevel(progress.xp);
-                            const masteryName = subSkill.masteryLevels[masteryLevel];
-                            
-                            return (
-                              <div
-                                key={subSkillId}
-                                className={`p-3 rounded-xl border transition-all cursor-pointer ${
-                                  isUnlocked
-                                    ? 'bg-neutral-700 border-neutral-600 hover:border-neutral-500'
-                                    : 'bg-neutral-900 border-neutral-800 opacity-50'
-                                }`}
-                                onClick={() => {
-                                  if (isUnlocked) {
-                                    setForm(prev => ({
-                                      ...prev,
-                                      subject: activeSubject,
-                                      mainSkill: mainSkillId,
-                                      subSkill: subSkillId
-                                    }));
-                                    setActiveTab('tasks');
-                                  }
-                                }}
-                              >
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="font-semibold text-sm">{subSkill.name}</div>
-                                  <div className="text-xs text-neutral-400">{progress.xp} XP</div>
-                                </div>
-                                
-                                <div className="text-xs text-neutral-500 mb-2">
-                                  {masteryName} • {progress.tasksCompleted} tasks
-                                </div>
-                                
-                                <div className="w-full bg-neutral-800 rounded-full h-2 mb-2">
-                                  <div 
-                                    className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
-                                    style={{ width: `${Math.min(100, (progress.xp / 1000) * 100)}%` }}
-                                  />
-                                </div>
-                                
-                                {!isUnlocked && (
-                                  <div className="text-xs text-amber-400">
-                                    Requires: {subSkill.unlockRequirements.tasksCompleted || 0} tasks
-                                  </div>
-                                )}
+              {/* Hierarchical Tree Structure */}
+              <div className="space-y-4">
+                {Object.entries(SUBJECTS).map(([subjectId, subject]) => {
+                  const isExpanded = expandedSubjects[subjectId];
+                  const subjectLevel = XP_SYSTEM.getSubjectLevel(subjectXP[subjectId] || 0);
+                  
+                  return (
+                    <div key={subjectId} className="border border-neutral-700 rounded-xl overflow-hidden">
+                      {/* Subject Header */}
+                      <div 
+                        className="p-4 bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-all"
+                        onClick={() => toggleSubject(subjectId)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span className="text-xl">{subject.icon}</span>
+                            <div>
+                              <div className="font-semibold text-lg">{subject.name}</div>
+                              <div className="text-sm text-neutral-400">
+                                Level {subjectLevel} • {subjectXP[subjectId] || 0} XP
                               </div>
-                            );
-                          })}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* Progress Bar */}
+                            <div className="w-32 bg-neutral-700 rounded-full h-2">
+                              <div 
+                                className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                style={{ width: `${Math.min(100, ((subjectXP[subjectId] || 0) / 10000) * 100)}%` }}
+                              />
+                            </div>
+                            <div className={`transform transition-transform ${isExpanded ? 'rotate-90' : ''}`}>
+                              <svg className="w-5 h-5 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
+                      
+                      {/* Main Skills */}
+                      {isExpanded && SKILL_TREES[subjectId] && (
+                        <div className="bg-neutral-900 p-4 border-t border-neutral-700">
+                          <div className="space-y-3">
+                            {Object.entries(SKILL_TREES[subjectId].mainSkills).map(([mainSkillId, mainSkill]) => {
+                              const isMainExpanded = expandedMainSkills[mainSkillId];
+                              const mainSkillXP = Object.keys(mainSkill.subSkills).reduce((total, subSkillId) => {
+                                return total + (subSkillProgress[subSkillId]?.xp || 0);
+                              }, 0);
+                              const isMainSkillUnlocked = XP_SYSTEM.isSkillUnlocked(mainSkill, { 
+                                tasksCompleted: log.filter(e => e.type === "task").length 
+                              });
+                              
+                              return (
+                                <div key={mainSkillId} className="border border-neutral-600 rounded-lg overflow-hidden">
+                                  {/* Main Skill Header */}
+                                  <div 
+                                    className="p-3 bg-neutral-800 hover:bg-neutral-750 cursor-pointer transition-all"
+                                    onClick={() => toggleMainSkill(mainSkillId)}
+                                  >
+                                    <div className="flex items-center justify-between">
+                                      <div className="flex items-center gap-2">
+                                        <div className="font-semibold">{mainSkill.name}</div>
+                                        <div className={`px-2 py-1 rounded-full text-xs ${
+                                          isMainSkillUnlocked 
+                                            ? 'bg-green-900/50 text-green-200 border border-green-800'
+                                            : 'bg-neutral-700 text-neutral-400 border border-neutral-600'
+                                        }`}>
+                                          {isMainSkillUnlocked ? 'Unlocked' : 'Locked'}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="text-sm text-neutral-400">{mainSkillXP} XP</div>
+                                        <div className={`transform transition-transform ${isMainExpanded ? 'rotate-90' : ''}`}>
+                                          <svg className="w-4 h-4 text-neutral-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                          </svg>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                  
+                                  {/* Sub-Skills */}
+                                  {isMainExpanded && (
+                                    <div className="bg-neutral-900 p-3 border-t border-neutral-600">
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => {
+                                          const progress = subSkillProgress[subSkillId] || { xp: 0, tasksCompleted: 0 };
+                                          const isUnlocked = XP_SYSTEM.isSkillUnlocked(subSkill, progress);
+                                          const masteryLevel = XP_SYSTEM.getMasteryLevel(progress.xp);
+                                          const masteryName = subSkill.masteryLevels[masteryLevel];
+                                          const progressPercent = Math.min(100, (progress.xp / 1000) * 100);
+                                          
+                                          return (
+                                            <div
+                                              key={subSkillId}
+                                              className={`p-3 rounded-lg border transition-all cursor-pointer ${
+                                                isUnlocked
+                                                  ? 'bg-neutral-700 border-neutral-600 hover:border-neutral-500 hover:bg-neutral-650'
+                                                  : 'bg-neutral-800 border-neutral-700 opacity-60'
+                                              }`}
+                                              onClick={() => {
+                                                if (isUnlocked) {
+                                                  setForm(prev => ({
+                                                    ...prev,
+                                                    subject: subjectId,
+                                                    mainSkill: mainSkillId,
+                                                    subSkill: subSkillId
+                                                  }));
+                                                  setActiveTab('tasks');
+                                                }
+                                              }}
+                                            >
+                                              <div className="flex items-center justify-between mb-2">
+                                                <div className="font-semibold text-sm">{subSkill.name}</div>
+                                                <div className="text-xs text-neutral-400">{progress.xp} XP</div>
+                                              </div>
+                                              
+                                              <div className="text-xs text-neutral-500 mb-2">
+                                                {masteryName} • {progress.tasksCompleted} tasks
+                                              </div>
+                                              
+                                              <div className="w-full bg-neutral-800 rounded-full h-2 mb-2">
+                                                <div 
+                                                  className="bg-blue-500 h-2 rounded-full transition-all duration-300" 
+                                                  style={{ width: `${progressPercent}%` }}
+                                                />
+                                              </div>
+                                              
+                                              {!isUnlocked && (
+                                                <div className="text-xs text-amber-400">
+                                                  Requires: {subSkill.unlockRequirements.tasksCompleted || 0} tasks
+                                                </div>
+                                              )}
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
-            ) : (
-              /* PoE-Style Skill Tree */
-              <PoEStyleSkillTree 
-                activeSubject={activeSubject}
-                subjectXP={subjectXP}
-                subSkillProgress={subSkillProgress}
-                setForm={setForm}
-                log={log}
-                setActiveTab={setActiveTab}
-              />
-            )}
+            </div>
           </div>
         );
       }
 
-      function TasksTab({ form, setForm, addTask, tasks, completeTask, deleteTask }) {
+      function TasksTab({ form, setForm, addTask, tasks, completeTask, deleteTask, xpLearning, getMLRecommendation }) {
         return (
           <div className="space-y-6">
             {/* Add Task Form */}
@@ -1190,6 +1639,64 @@
                 </div>
               </div>
               
+              {/* Enhanced XP Recommendations */}
+              <div className="mb-4 space-y-3">
+                {/* Auto XP Option */}
+                <div className="p-3 bg-emerald-950/20 border border-emerald-800 rounded-xl">
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-sm font-semibold text-emerald-300">Auto XP (Recommended)</div>
+                    <div className="text-xs text-emerald-400">
+                      {calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).source}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      type="button"
+                      onClick={()=> {
+                        const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                        setForm({...form, baseXP: autoXP.xp});
+                      }}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow"
+                    >
+                      Use Auto XP ({calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).xp} XP)
+                    </button>
+                    <div className="text-xs text-neutral-400">
+                      Objective: {calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).breakdown.objective} XP
+                    </div>
+                  </div>
+                </div>
+
+                {/* ML Recommendations (if available) */}
+                {Object.keys(xpLearning.userAdjustments).length > 3 && (
+                  <div className="p-3 bg-purple-950/20 border border-purple-800 rounded-xl">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="text-sm font-semibold text-purple-300">ML Recommendation</div>
+                      <div className="text-xs text-purple-400">
+                        Confidence: {getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).confidence}%
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        type="button"
+                        onClick={()=> {
+                          const mlRec = getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                          setForm({...form, baseXP: mlRec.xp});
+                        }}
+                        className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow"
+                      >
+                        Use ML ({getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).xp} XP)
+                      </button>
+                      <div className="text-xs text-neutral-400">
+                        Objective: {getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).objective} XP
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-3 mb-4">
+              </div>
+              
               <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow">
                 Add Task
               </button>
@@ -1249,8 +1756,8 @@
         );
       }
 
-      // PoE-Style Skill Tree Component
-      function PoEStyleSkillTree({ activeSubject, subjectXP, subSkillProgress, setForm, log, setActiveTab }) {
+      // PoE-Style Skill Tree Component - REMOVED (replaced with hierarchical view)
+      function PoEStyleSkillTree_OLD({ activeSubject, subjectXP, subSkillProgress, setForm, log, setActiveTab }) {
         const [zoom, setZoom] = useState(1);
         const [panX, setPanX] = useState(0);
         const [panY, setPanY] = useState(0);
@@ -2289,6 +2796,14 @@
           difficultyPatterns: {}, // Learn difficulty patterns
           timePatterns: {} // Learn time-based patterns
         });
+        
+        // ML System State
+        const [mlData, setMlData] = useLocalStorage("lifexp.mlData", {
+          patterns: {},
+          learning: { categoryBias: {}, difficultyBias: {}, timeBias: {}, confidence: 0.5 },
+          insights: [],
+          lastAnalysis: null
+        });
         const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
@@ -2324,6 +2839,8 @@
           capMode: "dynamic", // "static" | "dynamic"
           staticTotal: DEFAULT_CAPS.total,
           staticPerCat: DEFAULT_CAPS.perCat,
+          autoXPMode: true, // Enable automatic XP calculation
+          userLevel: 5, // User's overall skill level (1-10)
         });
 
         // UI misc
@@ -2359,7 +2876,7 @@
           setIsSyncing(true);
           try {
             const currentData = {
-              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
+              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
             };
             
             const syncedData = await cloudBackup.syncData(currentData);
@@ -2373,6 +2890,7 @@
             if (syncedData.milestones) setMilestones(syncedData.milestones);
             if (syncedData.achievements) setAchievements(syncedData.achievements);
             if (syncedData.xpLearning) setXpLearning(syncedData.xpLearning);
+            if (syncedData.mlData) setMlData(syncedData.mlData);
             if (syncedData.dateInfo) setDateInfo(syncedData.dateInfo);
             if (syncedData.log) setLog(syncedData.log);
             if (syncedData.settings) setSettings(syncedData.settings);
@@ -2397,14 +2915,14 @@
           if (cloudBackup.isAuthenticated() && !isSyncing) {
             const timeoutId = setTimeout(() => {
               const currentData = {
-                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
+                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
               };
               cloudBackup.syncData(currentData);
             }, 2000); // Debounce for 2 seconds
             
             return () => clearTimeout(timeoutId);
           }
-        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab]);
+        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab]);
 
         // Authentication functions
         const handleAuth = async (e) => {
@@ -2715,43 +3233,96 @@
           };
         }, [log, todayISO(), lastNDates, achievementData]);
         
-        // Auto XP Calculation Functions
-        const suggestXP = (title, category, taskType, difficulty, estimatedTime) => {
-          // Get base XP from matrix
-          const categoryMatrix = XP_MATRIX[category] || XP_MATRIX['General'];
-          const baseXP = categoryMatrix[taskType] || categoryMatrix['Medium Task'] || 25;
+        // ML Analysis Functions
+        const analyzeMLPatterns = () => {
+          const taskHistory = log.filter(entry => entry.type === 'task' && entry.meta);
+          const patterns = ML_SYSTEM.analyzePatterns(taskHistory);
+          const learning = ML_SYSTEM.learnFromAdjustments(xpLearning.userAdjustments, patterns);
+          const insights = ML_SYSTEM.generateInsights(patterns, learning, taskHistory);
           
-          // Apply difficulty multiplier
-          const difficultyMult = DIFFICULTY_MULTIPLIERS[difficulty] || 1.0;
+          setMlData({
+            patterns,
+            learning,
+            insights,
+            lastAnalysis: Date.now()
+          });
+        };
+
+        // Enhanced ML-Enhanced XP Calculation Functions
+        const suggestXP = (title, subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
+          // Use enhanced objective calculation as base
+          const objectiveXP = ML_SYSTEM.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
           
-          // Apply time multiplier
-          let timeMult = 1.0;
-          if (estimatedTime) {
-            for (const [time, mult] of Object.entries(TIME_MULTIPLIERS)) {
-              if (estimatedTime >= parseInt(time)) timeMult = mult;
-            }
+          // Use ML system for prediction if we have enough data
+          if (Object.keys(xpLearning.userAdjustments).length > 3) {
+            const mlPrediction = ML_SYSTEM.predictOptimalXP(
+              subject, subSkill, taskType, difficulty, estimatedTime, 
+              mlData.patterns, mlData.learning, userLevel
+            );
+            return mlPrediction.xp;
           }
           
-          // Apply learning adjustments
-          const learningKey = `${category}-${taskType}-${difficulty}`;
-          const userAdjustment = xpLearning.userAdjustments[learningKey] || 1.0;
-          
-          // Calculate final XP
-          let suggestedXP = Math.round(baseXP * difficultyMult * timeMult * userAdjustment);
-          
-          // Apply keyword detection
+          // Apply keyword detection to objective calculation
           const keywords = title.toLowerCase();
+          let multiplier = 1.0;
           if (keywords.includes('exam') || keywords.includes('test') || keywords.includes('final')) {
-            suggestedXP = Math.round(suggestedXP * 1.3);
+            multiplier *= 1.3;
           }
           if (keywords.includes('project') || keywords.includes('assignment') || keywords.includes('essay')) {
-            suggestedXP = Math.round(suggestedXP * 1.2);
+            multiplier *= 1.2;
           }
           if (keywords.includes('review') || keywords.includes('practice') || keywords.includes('homework')) {
-            suggestedXP = Math.round(suggestedXP * 0.9);
+            multiplier *= 0.9;
           }
           
-          return Math.max(5, suggestedXP); // Minimum 5 XP
+          return Math.max(5, Math.round(objectiveXP * multiplier));
+        };
+
+        const getMLRecommendation = (subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
+          const prediction = ML_SYSTEM.predictOptimalXP(
+            subject, subSkill, taskType, difficulty, estimatedTime, 
+            mlData.patterns, mlData.learning, userLevel
+          );
+          
+          return {
+            xp: prediction.xp,
+            confidence: Math.round(prediction.confidence * 100),
+            breakdown: prediction.breakdown,
+            objective: ML_SYSTEM.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel)
+          };
+        };
+
+        // Auto-XP calculation - no manual input needed!
+        const calculateAutoXP = (subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
+          // Get objective XP based on academic knowledge
+          const objectiveXP = ML_SYSTEM.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
+          
+          // If we have ML data, use it; otherwise use objective calculation
+          if (Object.keys(xpLearning.userAdjustments).length > 3) {
+            const mlPrediction = ML_SYSTEM.predictOptimalXP(
+              subject, subSkill, taskType, difficulty, estimatedTime, 
+              mlData.patterns, mlData.learning, userLevel
+            );
+            return {
+              xp: mlPrediction.xp,
+              confidence: mlPrediction.confidence,
+              source: 'ML Enhanced',
+              breakdown: mlPrediction.breakdown
+            };
+          }
+          
+          return {
+            xp: objectiveXP,
+            confidence: 0.8, // High confidence in objective calculations
+            source: 'Academic Knowledge',
+            breakdown: {
+              objective: objectiveXP,
+              categoryBias: 1.0,
+              difficultyBias: 1.0,
+              timeAdjustment: 1.0,
+              confidence: 0.8
+            }
+          };
         };
 
         const learnFromUserAdjustment = (category, taskType, difficulty, suggestedXP, actualXP) => {
@@ -2824,10 +3395,27 @@
           }
         }, [form.subSkill]);
 
+        // Trigger ML analysis when log changes significantly
+        useEffect(() => {
+          if (log.length > 0 && log.length % 10 === 0) { // Analyze every 10 tasks
+            analyzeMLPatterns();
+          }
+        }, [log.length]);
+
         function addTask(e){
           e.preventDefault();
           const title = form.title.trim(); if (!title) return;
-          const baseXP = Math.max(1, Number(form.baseXP)||10);
+          
+          // Use auto-XP if enabled, otherwise use manual input
+          let baseXP;
+          if (settings.autoXPMode) {
+            const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin, settings.userLevel);
+            baseXP = autoXP.xp;
+            pushAlert(`Auto-XP calculated: ${baseXP} XP (${autoXP.source})`);
+          } else {
+            baseXP = Math.max(1, Number(form.baseXP)||10);
+          }
+          
           const estimateMin = Math.max(0, Number(form.estimateMin)||0);
           
           // Get sub-skill information
@@ -2908,7 +3496,7 @@
             }
 
             // Calculate XP using new system
-            const baseXP = subSkill.baseXP || t.baseXP || 10;
+            const baseXP = t.baseXP || subSkill.baseXP || 10;
             const taskXP = calculateTaskXP(
               { xp: currentSubSkillXP }, 
               baseXP, 
@@ -3544,7 +4132,7 @@
               {activeTab === 'tasks' && (
                 <>
                   {/* Existing task content will go here */}
-                  <TasksTab form={form} setForm={setForm} addTask={addTask} tasks={tasks} completeTask={completeTask} deleteTask={deleteTask} />
+                  <TasksTab form={form} setForm={setForm} addTask={addTask} tasks={tasks} completeTask={completeTask} deleteTask={deleteTask} xpLearning={xpLearning} getMLRecommendation={getMLRecommendation} />
                 </>
               )}
 
@@ -3680,7 +4268,7 @@
               {/* Settings panel */}
               {showSettings && (
                 <div className="mb-6 p-4 rounded-2xl bg-neutral-900 border border-neutral-800">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <div>
                       <div className="text-sm font-semibold">Passive Cap Mode</div>
                       <select value={settings.capMode} onChange={(e)=> setSettings(s=> ({...s, capMode:e.target.value}))}
@@ -3704,7 +4292,46 @@
                       <input type="number" value={settings.staticPerCat} onChange={(e)=> setSettings(s=> ({...s, staticPerCat:Number(e.target.value||0)}))}
                         className="mt-1 w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2" />
                     </div>
+                    <div>
+                      <div className="text-sm font-semibold">Auto XP Mode</div>
+                      <label className="flex items-center gap-2 mt-1">
+                        <input 
+                          type="checkbox" 
+                          checked={settings.autoXPMode} 
+                          onChange={(e)=> setSettings(s=> ({...s, autoXPMode:e.target.checked}))}
+                          className="accent-emerald-600"
+                        />
+                        <span className="text-sm">Enable automatic XP calculation</span>
+                      </label>
+                      <div className="mt-2 text-xs text-neutral-400">
+                        {settings.autoXPMode 
+                          ? <>XP calculated automatically using academic knowledge and ML</>
+                          : <>Manual XP input required for all tasks</>
+                        }
+                      </div>
+                    </div>
                   </div>
+                  {settings.autoXPMode && (
+                    <div className="mt-3 p-3 bg-emerald-950/20 border border-emerald-800 rounded-xl">
+                      <div className="text-sm font-semibold text-emerald-300 mb-2">User Skill Level</div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={settings.userLevel} 
+                          onChange={(e)=> setSettings(s=> ({...s, userLevel:Number(e.target.value)}))}
+                          className="flex-1 accent-emerald-600"
+                        />
+                        <span className="text-sm text-emerald-200 w-8">{settings.userLevel}</span>
+                      </div>
+                      <div className="text-xs text-neutral-400 mt-1">
+                        {settings.userLevel <= 3 ? 'Beginner' : 
+                         settings.userLevel <= 6 ? 'Intermediate' : 
+                         settings.userLevel <= 8 ? 'Advanced' : 'Expert'} level
+                      </div>
+                    </div>
+                  )}
                   <div className="mt-2 text-xs text-neutral-400">Deadline bonus weekly cap: <b>500 XP</b>. Throughput bonus daily cap: <b>+200 XP</b>.</div>
                 </div>
               )}
@@ -3986,6 +4613,56 @@
                   <div className="text-sm text-neutral-400">Active Projects</div>
                   <div className="text-2xl font-bold">{projects.filter(p => !p.completedAt).length}</div>
                 </div>
+              </div>
+
+              {/* ML Insights */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl font-semibold">ML Insights & Recommendations</h2>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={analyzeMLPatterns}
+                      className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm shadow"
+                    >
+                      Analyze Patterns
+                    </button>
+                    <div className="text-xs text-neutral-400">
+                      Confidence: {Math.round((mlData.learning?.confidence || 0.5) * 100)}%
+                    </div>
+                  </div>
+                </div>
+                
+                {mlData.insights && mlData.insights.length > 0 ? (
+                  <div className="space-y-4">
+                    {mlData.insights.map((insight, index) => (
+                      <div key={index} className={`p-4 rounded-xl border ${
+                        insight.type === 'confidence' ? 'bg-purple-950/40 border-purple-800' :
+                        insight.type === 'efficiency' ? 'bg-blue-950/40 border-blue-800' :
+                        'bg-emerald-950/40 border-emerald-800'
+                      }`}>
+                        <div className="font-semibold mb-2">{insight.title}</div>
+                        <div className="text-sm text-neutral-300 mb-2">{insight.description}</div>
+                        <div className="text-xs text-neutral-400 italic">{insight.recommendation}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-neutral-400 text-center py-8">
+                    Complete more tasks to see ML insights and recommendations
+                  </div>
+                )}
+                
+                {Object.keys(xpLearning.userAdjustments).length > 0 && (
+                  <div className="mt-4 p-3 bg-neutral-800 rounded-xl">
+                    <div className="text-sm font-semibold mb-2">Learning Progress</div>
+                    <div className="text-xs text-neutral-400">
+                      The system has learned from {Object.keys(xpLearning.userAdjustments).length} of your XP adjustments
+                    </div>
+                    <div className="mt-2 text-xs text-neutral-500">
+                      Last analysis: {mlData.lastAnalysis ? new Date(mlData.lastAnalysis).toLocaleString() : 'Never'}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Mini Analytics Preview */}
