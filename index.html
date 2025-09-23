@@ -860,7 +860,7 @@
             merged[key] = mergedArray;
           });
           
-          ['xp', 'skill', 'lastLevel', 'milestones', 'dateInfo', 'settings', 'theme'].forEach(key => {
+          ['xp', 'skill', 'lastLevel', 'milestones', 'dateInfo', 'settings', 'theme', 'subjectXP', 'subSkillProgress', 'activeTab'].forEach(key => {
             if (localData[key] !== undefined) {
               merged[key] = localData[key];
             }
@@ -2009,15 +2009,63 @@
             <form onSubmit={addProject} className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
               <h2 className="text-xl font-semibold mb-4">Add New Project</h2>
               
-              <div className="grid grid-cols-1 md:grid-cols-8 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
                 <input 
-                  className="md:col-span-2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
                   placeholder="Project title (e.g., Learn Integral Calculus)"
                   value={projForm.title} 
                   onChange={e=> setProjForm({...projForm, title:e.target.value})} 
                 />
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={projForm.subject} 
+                  onChange={e=> {
+                    const newSubject = e.target.value;
+                    const subjectTree = SKILL_TREES[newSubject];
+                    const firstMainSkill = Object.keys(subjectTree.mainSkills)[0];
+                    const firstSubSkill = Object.keys(subjectTree.mainSkills[firstMainSkill].subSkills)[0];
+                    setProjForm({
+                      ...projForm, 
+                      subject: newSubject,
+                      mainSkill: firstMainSkill,
+                      subSkill: firstSubSkill
+                    });
+                  }}
+                >
+                  {Object.entries(SUBJECTS).map(([id, subject]) => (
+                    <option key={id} value={id}>{subject.icon} {subject.name}</option>
+                  ))}
+                </select>
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={projForm.mainSkill} 
+                  onChange={e=> {
+                    const newMainSkill = e.target.value;
+                    const firstSubSkill = Object.keys(SKILL_TREES[projForm.subject].mainSkills[newMainSkill].subSkills)[0];
+                    setProjForm({...projForm, mainSkill: newMainSkill, subSkill: firstSubSkill});
+                  }}
+                >
+                  {projForm.subject && Object.entries(SKILL_TREES[projForm.subject].mainSkills).map(([id, skill]) => (
+                    <option key={id} value={id}>{skill.name}</option>
+                  ))}
+                </select>
+                
+                <select 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  value={projForm.subSkill} 
+                  onChange={e=> setProjForm({...projForm, subSkill:e.target.value})}
+                >
+                  {projForm.subject && projForm.mainSkill && Object.entries(SKILL_TREES[projForm.subject].mainSkills[projForm.mainSkill].subSkills).map(([id, skill]) => (
+                    <option key={id} value={id}>{skill.name}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                 <input 
-                  className="md:col-span-3 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
                   placeholder="Short description"
                   value={projForm.description} 
                   onChange={e=> setProjForm({...projForm, description:e.target.value})} 
@@ -2028,7 +2076,7 @@
                   value={projForm.dueDate} 
                   onChange={e=> setProjForm({...projForm, dueDate:e.target.value})} 
                 />
-                <label className="flex items-center gap-2 text-sm text-neutral-300">
+                <label className="flex items-center gap-2 text-sm text-neutral-300 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2">
                   <input 
                     type="checkbox" 
                     className="accent-emerald-600"
@@ -2037,19 +2085,17 @@
                   />
                   Commit deadline
                 </label>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="number" 
-                    min="1" 
-                    className="w-full bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
-                    placeholder="Reward XP (e.g., 1000)" 
-                    value={projForm.rewardXP}
-                    onChange={e=> setProjForm({...projForm, rewardXP:e.target.value})} 
-                  />
-                  <button className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 font-semibold shadow">
-                    Add Project
-                  </button>
-                </div>
+                <input 
+                  type="number" 
+                  min="1" 
+                  className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                  placeholder="Reward XP (e.g., 1000)" 
+                  value={projForm.rewardXP}
+                  onChange={e=> setProjForm({...projForm, rewardXP:e.target.value})} 
+                />
+                <button className="bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl px-4 py-2 font-semibold shadow">
+                  Add Project
+                </button>
               </div>
             </form>
 
@@ -2091,6 +2137,13 @@
                           )}
                           <div className="mt-2 text-xs text-neutral-400">
                             Reward {p.rewardXP} XP {p.dueDate && <>• Due {p.dueDate} {p.committed && <span className="text-emerald-300">• committed</span>}</>}
+                            {p.subSkillName && (
+                              <div className="mt-1">
+                                <span className="text-blue-300">{SUBJECTS[p.subject]?.icon} {SUBJECTS[p.subject]?.name}</span>
+                                <span className="text-neutral-500"> • </span>
+                                <span className="text-emerald-300">{p.subSkillName}</span>
+                              </div>
+                            )}
                           </div>
                           {preview && !completed && <div className="mt-1 text-xs text-indigo-300">{preview}</div>}
                           <div className="mt-3">
@@ -2951,18 +3004,31 @@
 
         // ================== Projects (with deadlines) ==================
         const [projForm, setProjForm] = useState({
-          title:"", description:"", rewardXP: 1000, dueDate:"", committed: false
+          title:"", description:"", rewardXP: 1000, dueDate:"", committed: false,
+          subject: "math", mainSkill: "pre_calculus", subSkill: "arithmetic_foundations"
         });
 
         function addProject(e){
           e.preventDefault();
           const title = projForm.title.trim(); if (!title) return;
           const rewardXP = Math.max(1, Number(projForm.rewardXP)||1000);
+          
+          // Get sub-skill information
+          const subSkill = findSubSkillById(projForm.subSkill);
+          if (!subSkill) {
+            pushAlert("Please select a valid sub-skill", "error");
+            return;
+          }
+          
           const p = {
             id: uid(),
             title,
             description: projForm.description.trim(),
             rewardXP,
+            subject: projForm.subject,
+            mainSkill: projForm.mainSkill,
+            subSkillId: projForm.subSkill,
+            subSkillName: subSkill.name,
             steps: [], // {id,title,done,doneAtDate?}
             completedAt: null,
             dueDate: projForm.dueDate || "",
@@ -3042,14 +3108,51 @@
 
           // Apply rewards
           const totalGrant = reward + appliedDeadlineBonus;
-          setXp(x => x + totalGrant);
+          
+          // NEW: Award XP to specific subject and sub-skill if project has skill information
+          if (p.subject && p.subSkillId) {
+            // Update sub-skill progress
+            setSubSkillProgress(prev => ({
+              ...prev,
+              [p.subSkillId]: {
+                ...prev[p.subSkillId],
+                xp: (prev[p.subSkillId]?.xp || 0) + totalGrant,
+                tasksCompleted: (prev[p.subSkillId]?.tasksCompleted || 0) + 1,
+                lastCompleted: completedDate
+              }
+            }));
 
-          // Log project reward
-          logEntry({ type:"project", amount: reward, meta: { projectId: p.id, title: p.title } });
+            // Update subject XP
+            setSubjectXP(prev => ({
+              ...prev,
+              [p.subject]: (prev[p.subject] || 0) + totalGrant
+            }));
+            
+            // Log project reward with skill information
+            logEntry({ 
+              type:"project", 
+              amount: reward, 
+              meta: { 
+                projectId: p.id, 
+                title: p.title, 
+                subject: p.subject, 
+                subSkillId: p.subSkillId,
+                subSkillName: p.subSkillName 
+              } 
+            });
+          } else {
+            // Fallback to global XP only (for legacy projects without skill info)
+            setXp(x => x + totalGrant);
+            logEntry({ type:"project", amount: reward, meta: { projectId: p.id, title: p.title } });
+          }
+          
+          // Global XP (always award to global total)
+          setXp(x => x + totalGrant);
+          
           if (appliedDeadlineBonus>0) {
             logEntry({ type:"deadline_bonus", amount: appliedDeadlineBonus, meta: { projectId: p.id, title: p.title, flag: deadlineFlag, week: weekKey } });
           }
-          pushAlert(`Project complete: +${totalGrant} XP • ${p.title}${appliedDeadlineBonus?` (+${appliedDeadlineBonus} deadline bonus)`:''}`);
+          pushAlert(`Project complete: +${totalGrant} XP • ${p.subSkillName || 'General'} • ${p.title}${appliedDeadlineBonus?` (+${appliedDeadlineBonus} deadline bonus)`:''}`);
 
           // SP token for two+ on-time/early projects this week (max 2/week)
           if (appliedDeadlineBonus>0) {
