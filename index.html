@@ -1542,7 +1542,7 @@
         );
       }
 
-      function TasksTab({ form, setForm, addTask, tasks, completeTask, deleteTask, xpLearning, getMLRecommendation }) {
+      function TasksTab({ form, setForm, addTask, tasks, completeTask, deleteTask, xpLearning, getMLRecommendation, calculateAutoXP }) {
         return (
           <div className="space-y-6">
             {/* Add Task Form */}
@@ -4132,7 +4132,7 @@
               {activeTab === 'tasks' && (
                 <>
                   {/* Existing task content will go here */}
-                  <TasksTab form={form} setForm={setForm} addTask={addTask} tasks={tasks} completeTask={completeTask} deleteTask={deleteTask} xpLearning={xpLearning} getMLRecommendation={getMLRecommendation} />
+                  <TasksTab form={form} setForm={setForm} addTask={addTask} tasks={tasks} completeTask={completeTask} deleteTask={deleteTask} xpLearning={xpLearning} getMLRecommendation={getMLRecommendation} calculateAutoXP={calculateAutoXP} />
                 </>
               )}
 
