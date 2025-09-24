@@ -122,6 +122,89 @@
         efficiency: { key: "efficiency", name: "Efficiency", desc: "+1 base XP to tasks per lvl (max +10).", max: 10, cost: lvl => 1 + lvl },
       };
 
+      // ================== ML-Enhanced Dual-Track System ==================
+      
+      // Dual-Track System Configuration
+      const DUAL_TRACK_CONFIG = {
+        // XP Distribution Weights
+        distribution: {
+          early: { mastery: 0.6, momentum: 0.3, coins: 0.1 }, // Levels 1-20
+          mid: { mastery: 0.5, momentum: 0.3, coins: 0.2 },   // Levels 21-60
+          late: { mastery: 0.7, momentum: 0.2, coins: 0.1 }   // Levels 61-100
+        },
+        
+        // Progressive Level Scaling
+        levelScaling: {
+          // Early levels (1-20): Quick wins
+          early: { baseXP: 500, multiplier: 1.0, maxLevel: 20 },
+          // Mid levels (21-60): Steady progression
+          mid: { baseXP: 1000, multiplier: 1.1, maxLevel: 60 },
+          // Late levels (61-100): Prestige progression
+          late: { baseXP: 2000, multiplier: 1.2, maxLevel: 100 }
+        },
+        
+        // Coin Economy
+        coinEconomy: {
+          earning: {
+            task_completion: 10,     // Base coins per task
+            quality_bonus: 5,        // High quality reflection
+            focus_bonus: 3,          // No distractions
+            novelty_bonus: 8,        // First time tackling subskill
+            streak_bonus: 2,         // Daily streak
+            banking_bonus: 10        // Daily review bonus
+          },
+          spending: {
+            respec: 20,              // Weekly skill tree reset
+            study_boost: 30,         // +20% XP for next session
+            focus_mode: 25,          // 2-hour distraction-free mode
+            cosmetic: 15             // Theme unlocks
+          }
+        },
+        
+        // Banking System
+        banking: {
+          risk: {
+            missBankingDays: 2,      // Days before losing unbanked XP
+            lossRate: 0.2,           // 20% loss of unbanked XP
+            recoveryRate: 0.5        // 50% recovery by doing review
+          },
+          rewards: {
+            baseCoins: 10,           // Base coins for banking
+            qualityMultiplier: 1.5,  // Quality reflection bonus
+            streakBonus: 2           // Streak bonus coins
+          }
+        },
+        
+        // Mastery Evidence Requirements
+        mastery: {
+          evidenceTypes: ['quiz', 'problem_set', 'retrieval_practice', 'project', 'exam'],
+          levelThresholds: {
+            novice: 0,       // 0-100 XP
+            apprentice: 100, // 100-300 XP
+            proficient: 300, // 300-600 XP
+            advanced: 600,   // 600-1000 XP
+            expert: 1000     // 1000+ XP
+          },
+          unlockRequirements: {
+            'Error Pattern Analyzer': { 
+              subject: 'math', 
+              requirements: { problem_sets: 3, accuracy: 80, time_bonus: true },
+              cost: 50 
+            },
+            'Data Clinic': { 
+              subject: 'economics', 
+              requirements: { projects: 2, complexity: 'high' },
+              cost: 75 
+            },
+            'Code Kata Timer': { 
+              subject: 'programming', 
+              requirements: { exercises: 10, time_bonus: true },
+              cost: 60 
+            }
+          }
+        }
+      };
+
       // ================== ML-Enhanced XP System ==================
       
       // Objective Academic Knowledge Database
@@ -2804,6 +2887,37 @@
           insights: [],
           lastAnalysis: null
         });
+
+        // Dual-Track System State
+        const [dualTrackData, setDualTrackData] = useLocalStorage("lifexp.dualTrack", {
+          // Mastery Track (Intrinsic - Evidence-Based)
+          mastery: {
+            subjects: {},
+            evidence: [],
+            unlocks: {},
+            progression: {}
+          },
+          
+          // Momentum Track (Extrinsic - Level-Based)
+          momentum: {
+            level: 1,
+            xp: 0,
+            xpToNext: 500,
+            unbankedXP: 0,
+            coins: 0,
+            lastBankTime: null,
+            streak: 0
+          },
+          
+          // User Progressions
+          progression: {
+            lastLevelUp: null,
+            totalTasksCompleted: 0,
+            dailyTasksCompleted: 0,
+            weeklyTasksCompleted: 0,
+            masteryMilestones: []
+          }
+        });
         const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
@@ -2876,7 +2990,7 @@
           setIsSyncing(true);
           try {
             const currentData = {
-              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
+              tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dualTrackData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
             };
             
             const syncedData = await cloudBackup.syncData(currentData);
@@ -2891,6 +3005,7 @@
             if (syncedData.achievements) setAchievements(syncedData.achievements);
             if (syncedData.xpLearning) setXpLearning(syncedData.xpLearning);
             if (syncedData.mlData) setMlData(syncedData.mlData);
+            if (syncedData.dualTrackData) setDualTrackData(syncedData.dualTrackData);
             if (syncedData.dateInfo) setDateInfo(syncedData.dateInfo);
             if (syncedData.log) setLog(syncedData.log);
             if (syncedData.settings) setSettings(syncedData.settings);
@@ -2915,14 +3030,14 @@
           if (cloudBackup.isAuthenticated() && !isSyncing) {
             const timeoutId = setTimeout(() => {
               const currentData = {
-                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
+                tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dualTrackData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab
               };
               cloudBackup.syncData(currentData);
             }, 2000); // Debounce for 2 seconds
             
             return () => clearTimeout(timeoutId);
           }
-        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab]);
+        }, [tasks, projects, xp, skill, lastLevel, milestones, achievements, xpLearning, mlData, dualTrackData, dateInfo, log, settings, theme, challenges, templates, currentTitles, subjectXP, subSkillProgress, activeTab]);
 
         // Authentication functions
         const handleAuth = async (e) => {
@@ -3292,30 +3407,42 @@
           };
         };
 
-        // Auto-XP calculation - no manual input needed!
-        const calculateAutoXP = (subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
+        // Enhanced Dual-Track Auto-XP calculation
+        const calculateDualTrackXP = (subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
           // Get objective XP based on academic knowledge
           const objectiveXP = ML_SYSTEM.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
           
-          // If we have ML data, use it; otherwise use objective calculation
+          // ML prediction if available
+          let mlPrediction = null;
           if (Object.keys(xpLearning.userAdjustments).length > 3) {
-            const mlPrediction = ML_SYSTEM.predictOptimalXP(
+            mlPrediction = ML_SYSTEM.predictOptimalXP(
               subject, subSkill, taskType, difficulty, estimatedTime, 
               mlData.patterns, mlData.learning, userLevel
             );
-            return {
-              xp: mlPrediction.xp,
-              confidence: mlPrediction.confidence,
-              source: 'ML Enhanced',
-              breakdown: mlPrediction.breakdown
-            };
           }
           
+          // Use ML prediction or objective calculation
+          const finalXP = mlPrediction ? mlPrediction.xp : objectiveXP;
+          
+          // Calculate dual-track distribution
+          const distribution = calculateDualTrackDistribution(finalXP, userLevel, {
+            subject, subSkill, taskType, difficulty, estimatedTime
+          });
+          
           return {
-            xp: objectiveXP,
-            confidence: 0.8, // High confidence in objective calculations
-            source: 'Academic Knowledge',
-            breakdown: {
+            // Backward compatibility
+            xp: finalXP,
+            confidence: mlPrediction ? mlPrediction.confidence : 0.8,
+            source: mlPrediction ? 'ML Enhanced' : 'Academic Knowledge',
+            
+            // Enhanced dual-track breakdown
+            dualTrack: {
+              mastery: distribution.mastery,
+              momentum: distribution.momentum,
+              coins: distribution.coins
+            },
+            
+            breakdown: mlPrediction ? mlPrediction.breakdown : {
               objective: objectiveXP,
               categoryBias: 1.0,
               difficultyBias: 1.0,
@@ -3324,6 +3451,322 @@
             }
           };
         };
+
+        // Dual-Track Distribution Calculation
+        const calculateDualTrackDistribution = (baseXP, userLevel, taskAnalysis) => {
+          // Get distribution weights based on user level
+          const getDistributionWeights = (level) => {
+            if (level <= 20) return DUAL_TRACK_CONFIG.distribution.early;
+            if (level <= 60) return DUAL_TRACK_CONFIG.distribution.mid;
+            return DUAL_TRACK_CONFIG.distribution.late;
+          };
+          
+          const weights = getDistributionWeights(userLevel);
+          
+          // Calculate XP distribution
+          const masteryXP = Math.round(baseXP * weights.mastery);
+          const momentumXP = Math.round(baseXP * weights.momentum);
+          const coins = Math.round(baseXP * weights.coins);
+          
+          // Add bonuses and adjustments
+          const bonuses = calculateDualTrackBonuses(taskAnalysis, userLevel);
+          
+          return {
+            mastery: {
+              xp: masteryXP + bonuses.masteryBonus,
+              evidence: generateEvidenceRequirements(taskAnalysis),
+              subskill: taskAnalysis.subSkill,
+              unlock: checkUnlockRequirements(taskAnalysis)
+            },
+            momentum: {
+              xp: momentumXP + bonuses.momentumBonus,
+              coins: coins + bonuses.coinBonus,
+              level: calculateLevelProgress(momentumXP + bonuses.momentumBonus),
+              banking: addToUnbankedXP(momentumXP + bonuses.momentumBonus)
+            }
+          };
+        };
+
+        // Calculate dual-track bonuses
+        const calculateDualTrackBonuses = (taskAnalysis, userLevel) => {
+          const bonuses = {
+            masteryBonus: 0,
+            momentumBonus: 0,
+            coinBonus: 0
+          };
+          
+          // Quality bonuses (from reflection quality)
+          if (taskAnalysis.quality === 'excellent') {
+            bonuses.masteryBonus += 5;
+            bonuses.coinBonus += DUAL_TRACK_CONFIG.coinEconomy.earning.quality_bonus;
+          }
+          
+          // Focus bonuses
+          if (taskAnalysis.focus === 'deep_work') {
+            bonuses.momentumBonus += 3;
+            bonuses.coinBonus += DUAL_TRACK_CONFIG.coinEconomy.earning.focus_bonus;
+          }
+          
+          // Novelty bonuses (first time tackling subskill)
+          if (taskAnalysis.novelty) {
+            bonuses.masteryBonus += 8;
+            bonuses.coinBonus += DUAL_TRACK_CONFIG.coinEconomy.earning.novelty_bonus;
+          }
+          
+          // Streak bonuses
+          if (dualTrackData.progression.streak > 0) {
+            bonuses.coinBonus += DUAL_TRACK_CONFIG.coinEconomy.earning.streak_bonus;
+          }
+          
+          return bonuses;
+        };
+
+        // Generate evidence requirements for mastery tracking
+        const generateEvidenceRequirements = (taskAnalysis) => {
+          return {
+            type: taskAnalysis.taskType,
+            subject: taskAnalysis.subject,
+            subskill: taskAnalysis.subSkill,
+            difficulty: taskAnalysis.difficulty,
+            estimatedTime: taskAnalysis.estimatedTime,
+            timestamp: Date.now(),
+            requirements: {
+              accuracy: taskAnalysis.difficulty === 'expert' ? 90 : 80,
+              timeBonus: taskAnalysis.estimatedTime < 30,
+              quality: 'good'
+            }
+          };
+        };
+
+        // Check unlock requirements
+        const checkUnlockRequirements = (taskAnalysis) => {
+          const subject = taskAnalysis.subject.toLowerCase();
+          const unlocks = DUAL_TRACK_CONFIG.mastery.unlockRequirements;
+          
+          const availableUnlocks = [];
+          Object.entries(unlocks).forEach(([unlockName, unlockData]) => {
+            if (unlockData.subject === subject) {
+              availableUnlocks.push({
+                name: unlockName,
+                cost: unlockData.cost,
+                requirements: unlockData.requirements
+              });
+            }
+          });
+          
+          return availableUnlocks;
+        };
+
+        // Calculate level progress
+        const calculateLevelProgress = (momentumXP) => {
+          const currentLevel = dualTrackData.momentum.level;
+          const currentXP = dualTrackData.momentum.xp;
+          const xpToNext = dualTrackData.momentum.xpToNext;
+          
+          const newXP = currentXP + momentumXP;
+          const newLevel = Math.floor(newXP / xpToNext) + currentLevel;
+          const newXPToNext = calculateXPToNext(newLevel);
+          
+          return {
+            currentLevel: currentLevel,
+            newLevel: newLevel,
+            currentXP: currentXP,
+            newXP: newXP,
+            xpToNext: xpToNext,
+            newXPToNext: newXPToNext,
+            levelUp: newLevel > currentLevel
+          };
+        };
+
+        // Calculate XP required for next level
+        const calculateXPToNext = (level) => {
+          if (level <= 20) return DUAL_TRACK_CONFIG.levelScaling.early.baseXP;
+          if (level <= 60) return DUAL_TRACK_CONFIG.levelScaling.mid.baseXP;
+          return DUAL_TRACK_CONFIG.levelScaling.late.baseXP;
+        };
+
+        // Add XP to unbanked pool
+        const addToUnbankedXP = (momentumXP) => {
+          const currentUnbanked = dualTrackData.momentum.unbankedXP || 0;
+          return currentUnbanked + momentumXP;
+        };
+
+        // Banking System with ML Insights
+        const bankingSystem = {
+          // Daily review with ML-generated prompts
+          campAction: {
+            generatePrompts: () => {
+              const basePrompts = [
+                "What was your most challenging task today?",
+                "Which subskill did you improve most?",
+                "What will you focus on tomorrow?",
+                "Rate your focus quality (1-5)"
+              ];
+              
+              // ML-enhanced prompts based on user patterns
+              if (mlData.patterns && Object.keys(mlData.patterns).length > 0) {
+                const mlPrompts = ML_SYSTEM.generatePersonalizedPrompts(mlData.patterns);
+                return [...basePrompts, ...mlPrompts];
+              }
+              
+              return basePrompts;
+            },
+            
+            assessReflectionQuality: (userInput) => {
+              // Simple quality assessment based on input length and keywords
+              const quality = {
+                score: 0,
+                factors: []
+              };
+              
+              // Length factor
+              if (userInput.length > 100) {
+                quality.score += 2;
+                quality.factors.push("detailed reflection");
+              } else if (userInput.length > 50) {
+                quality.score += 1;
+                quality.factors.push("moderate reflection");
+              }
+              
+              // Keyword analysis
+              const keywords = ['challenging', 'improved', 'learned', 'difficult', 'progress', 'understanding'];
+              const foundKeywords = keywords.filter(keyword => 
+                userInput.toLowerCase().includes(keyword)
+              );
+              
+              quality.score += foundKeywords.length;
+              quality.factors.push(`${foundKeywords.length} reflection keywords`);
+              
+              return {
+                score: Math.min(5, quality.score),
+                factors: quality.factors,
+                multiplier: quality.score >= 4 ? 1.5 : quality.score >= 3 ? 1.2 : 1.0
+              };
+            },
+            
+            processBanking: (userInput) => {
+              const quality = bankingSystem.campAction.assessReflectionQuality(userInput);
+              const unbankedXP = dualTrackData.momentum.unbankedXP || 0;
+              const currentCoins = dualTrackData.momentum.coins || 0;
+              
+              // Calculate rewards
+              const baseCoins = DUAL_TRACK_CONFIG.banking.rewards.baseCoins;
+              const qualityBonus = Math.round(baseCoins * (quality.multiplier - 1));
+              const streakBonus = dualTrackData.momentum.streak * DUAL_TRACK_CONFIG.banking.rewards.streakBonus;
+              const totalCoins = baseCoins + qualityBonus + streakBonus;
+              
+              // Update dual-track data
+              setDualTrackData(prev => ({
+                ...prev,
+                momentum: {
+                  ...prev.momentum,
+                  xp: prev.momentum.xp + unbankedXP,
+                  unbankedXP: 0,
+                  coins: prev.momentum.coins + totalCoins,
+                  lastBankTime: Date.now(),
+                  streak: prev.momentum.streak + 1
+                },
+                progression: {
+                  ...prev.progression,
+                  dailyTasksCompleted: 0,
+                  lastLevelUp: prev.momentum.level !== prev.momentum.level ? Date.now() : prev.progression.lastLevelUp
+                }
+              }));
+              
+              // Check for level up
+              const levelProgress = calculateLevelProgress(0);
+              if (levelProgress.levelUp) {
+                handleLevelUp(levelProgress.newLevel);
+              }
+              
+              return {
+                success: true,
+                bankedXP: unbankedXP,
+                earnedCoins: totalCoins,
+                quality: quality,
+                levelUp: levelProgress.levelUp,
+                newLevel: levelProgress.newLevel
+              };
+            }
+          },
+          
+          // Risk system
+          risk: {
+            checkRisk: () => {
+              const lastBankTime = dualTrackData.momentum.lastBankTime;
+              const now = Date.now();
+              const daysSinceLastBank = lastBankTime ? (now - lastBankTime) / (1000 * 60 * 60 * 24) : 0;
+              
+              if (daysSinceLastBank >= DUAL_TRACK_CONFIG.banking.risk.missBankingDays) {
+                const unbankedXP = dualTrackData.momentum.unbankedXP || 0;
+                const lossAmount = Math.round(unbankedXP * DUAL_TRACK_CONFIG.banking.risk.lossRate);
+                
+                setDualTrackData(prev => ({
+                  ...prev,
+                  momentum: {
+                    ...prev.momentum,
+                    unbankedXP: Math.max(0, prev.momentum.unbankedXP - lossAmount),
+                    streak: 0 // Reset streak on missed banking
+                  }
+                }));
+                
+                return {
+                  riskTriggered: true,
+                  daysMissed: Math.floor(daysSinceLastBank),
+                  lossAmount: lossAmount,
+                  remainingXP: Math.max(0, unbankedXP - lossAmount)
+                };
+              }
+              
+              return { riskTriggered: false };
+            }
+          }
+        };
+
+        // Level up handler
+        const handleLevelUp = (newLevel) => {
+          const rewards = {
+            coins: Math.round(newLevel * 5), // 5 coins per level
+            points: 1, // 1 skill point per level
+            unlocks: getLevelUnlocks(newLevel)
+          };
+          
+          setDualTrackData(prev => ({
+            ...prev,
+            momentum: {
+              ...prev.momentum,
+              coins: prev.momentum.coins + rewards.coins
+            },
+            progression: {
+              ...prev.progression,
+              lastLevelUp: Date.now(),
+              masteryMilestones: [...prev.progression.masteryMilestones, {
+                type: 'level_up',
+                level: newLevel,
+                timestamp: Date.now(),
+                rewards: rewards
+              }]
+            }
+          }));
+          
+          pushAlert(`Level Up! You're now level ${newLevel}! Earned ${rewards.coins} coins and 1 skill point.`);
+        };
+
+        // Get unlocks for specific level
+        const getLevelUnlocks = (level) => {
+          const unlocks = [];
+          
+          if (level === 5) unlocks.push("Scholar Robe Theme");
+          if (level === 10) unlocks.push("Master's Cap Theme");
+          if (level === 15) unlocks.push("Expert Badge Theme");
+          if (level === 20) unlocks.push("Advanced Skill Tree Access");
+          if (level === 30) unlocks.push("Prestige Mode Unlocked");
+          
+          return unlocks;
+        };
+
+        // Backward compatibility - keep original function
+        const calculateAutoXP = calculateDualTrackXP;
 
         const learnFromUserAdjustment = (category, taskType, difficulty, suggestedXP, actualXP) => {
           if (suggestedXP === actualXP) return; // No learning needed
@@ -3402,18 +3845,35 @@
           }
         }, [log.length]);
 
+        // Check banking risk on app load
+        useEffect(() => {
+          const riskCheck = bankingSystem.risk.checkRisk();
+          if (riskCheck.riskTriggered) {
+            pushAlert(`Warning: You missed banking for ${riskCheck.daysMissed} days. Lost ${riskCheck.lossAmount} XP.`, "error");
+          }
+        }, []);
+
         function addTask(e){
           e.preventDefault();
           const title = form.title.trim(); if (!title) return;
           
-          // Use auto-XP if enabled, otherwise use manual input
-          let baseXP;
+          // Enhanced dual-track XP calculation
+          let taskXP;
           if (settings.autoXPMode) {
-            const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin, settings.userLevel);
-            baseXP = autoXP.xp;
-            pushAlert(`Auto-XP calculated: ${baseXP} XP (${autoXP.source})`);
+            const dualTrackXP = calculateDualTrackXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin, settings.userLevel);
+            taskXP = dualTrackXP;
+            pushAlert(`Dual-Track XP calculated: ${dualTrackXP.xp} XP (${dualTrackXP.source})`);
           } else {
-            baseXP = Math.max(1, Number(form.baseXP)||10);
+            const manualXP = Math.max(1, Number(form.baseXP)||10);
+            // Convert manual XP to dual-track format for consistency
+            taskXP = {
+              xp: manualXP,
+              source: 'Manual Input',
+              dualTrack: {
+                mastery: { xp: manualXP * 0.6 },
+                momentum: { xp: manualXP * 0.3, coins: manualXP * 0.1 }
+              }
+            };
           }
           
           const estimateMin = Math.max(0, Number(form.estimateMin)||0);
@@ -3425,7 +3885,8 @@
             return;
           }
 
-          setTasks(t => [...t, {
+          // Create task with dual-track data
+          const newTask = {
             id: uid(), 
             title, 
             subject: form.subject,
@@ -3433,13 +3894,28 @@
             subSkillId: form.subSkill,
             subSkillName: subSkill.name,
             difficulty: form.difficulty,
-            baseXP, 
+            baseXP: taskXP.xp, // Total XP for backward compatibility
             estimateMin, 
             createdAt: todayISO(),
             streak: 0, 
             lastCompleted: null, 
-            timesCompletedToday: 0
-          }]);
+            timesCompletedToday: 0,
+            // Enhanced dual-track data
+            dualTrack: taskXP.dualTrack,
+            source: taskXP.source,
+            confidence: taskXP.confidence || 1.0
+          };
+          
+          setTasks(t => [...t, newTask]);
+          
+          // Update dual-track progression data
+          setDualTrackData(prev => ({
+            ...prev,
+            progression: {
+              ...prev.progression,
+              totalTasksCreated: (prev.progression.totalTasksCreated || 0) + 1
+            }
+          }));
           setForm(f => ({ 
             ...f, 
             title:"" 
@@ -3532,14 +4008,52 @@
             // Update global XP
             setXp(x => x + finalXP);
 
+            // Update dual-track system
+            const dualTrackXP = t.dualTrack || {
+              mastery: { xp: finalXP * 0.6 },
+              momentum: { xp: finalXP * 0.3, coins: finalXP * 0.1 }
+            };
+            
+            setDualTrackData(prev => ({
+              ...prev,
+              // Add momentum XP to unbanked pool
+              momentum: {
+                ...prev.momentum,
+                unbankedXP: (prev.momentum.unbankedXP || 0) + Math.round(dualTrackXP.momentum.xp),
+                coins: (prev.momentum.coins || 0) + Math.round(dualTrackXP.momentum.coins)
+              },
+              // Update mastery evidence
+              mastery: {
+                ...prev.mastery,
+                evidence: [...(prev.mastery.evidence || []), {
+                  taskId: t.id,
+                  subject: subject,
+                  subSkill: subSkillId,
+                  xp: Math.round(dualTrackXP.mastery.xp),
+                  timestamp: Date.now(),
+                  difficulty: t.difficulty,
+                  quality: 'good', // Default quality
+                  actualMin: actualMin,
+                  efficiency: actualMin ? (t.estimateMin / actualMin) : null
+                }]
+              },
+              // Update progression
+              progression: {
+                ...prev.progression,
+                totalTasksCompleted: (prev.progression.totalTasksCompleted || 0) + 1,
+                dailyTasksCompleted: (prev.progression.dailyTasksCompleted || 0) + 1
+              }
+            }));
+
             // Logs
             logEntry({ type:"task", amount: finalXP, meta: {
               taskId: t.id, title: t.title, subject: subject, subSkillId: subSkillId,
               subSkillName: subSkill.name, estimateMin: t.estimateMin||null, 
-              actualMin: actualMin, baseXP: baseXP, difficulty: t.difficulty
+              actualMin: actualMin, baseXP: baseXP, difficulty: t.difficulty,
+              dualTrack: dualTrackXP // Enhanced logging
             }});
 
-            pushAlert(`Task: +${finalXP} XP • ${subSkill.name} • ${t.title}`);
+            pushAlert(`Task: +${finalXP} XP • ${subSkill.name} • ${t.title} • +${Math.round(dualTrackXP.momentum.coins)} coins`);
 
             // Update task fields
             return { ...t, lastCompleted: today, streak: newStreak, timesCompletedToday: 1 };
@@ -4016,8 +4530,10 @@
               <div className="mb-6">
                 <div className="flex space-x-1 bg-neutral-900 p-1 rounded-xl">
                   {[
+                    { id: 'dashboard', label: 'Dashboard', icon: '🏠' },
                     { id: 'tasks', label: 'Tasks', icon: '📝' },
                     { id: 'skills', label: 'Skills', icon: '🌳' },
+                    { id: 'dual-track', label: 'Dual-Track', icon: '⚡' },
                     { id: 'projects', label: 'Projects', icon: '🎯' },
                     { id: 'calendar', label: 'Calendar', icon: '📅' },
                     { id: 'analytics', label: 'Analytics', icon: '📊' }
@@ -4117,6 +4633,288 @@
               </div>
 
               {/* Tab Content */}
+              {activeTab === 'dashboard' && (
+                <div className="space-y-6">
+                  {/* Quick Task Creation */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+                    <h2 className="text-xl font-semibold mb-4">Quick Task Creation</h2>
+                    <form onSubmit={addTask} className="grid grid-cols-1 md:grid-cols-6 gap-3">
+                      <input
+                        className="col-span-2 bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        placeholder="Task title (e.g., Complete Khan Academy Unit 1)"
+                        value={form.title}
+                        onChange={(e) => setForm({...form, title: e.target.value})}
+                      />
+                      <select
+                        className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={form.subject}
+                        onChange={(e) => {
+                          const newSubject = e.target.value;
+                          const subjectData = SKILL_TREES[newSubject];
+                          const firstMainSkill = Object.keys(subjectData.mainSkills)[0];
+                          const firstSubSkill = Object.keys(subjectData.mainSkills[firstMainSkill].subSkills)[0];
+                          setForm({
+                            ...form,
+                            subject: newSubject,
+                            mainSkill: firstMainSkill,
+                            subSkill: firstSubSkill
+                          });
+                        }}
+                      >
+                        {Object.entries(SUBJECTS).map(([id, subject]) => (
+                          <option key={id} value={id}>{subject.icon} {subject.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={form.subSkill}
+                        onChange={(e) => setForm({...form, subSkill: e.target.value})}
+                      >
+                        {form.subject && Object.entries(SKILL_TREES[form.subject].mainSkills).map(([mainSkillId, mainSkill]) => 
+                          Object.entries(mainSkill.subSkills).map(([subSkillId, subSkill]) => (
+                            <option key={subSkillId} value={subSkillId}>{subSkill.name}</option>
+                          ))
+                        )}
+                      </select>
+                      <select
+                        className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        value={form.difficulty}
+                        onChange={(e) => setForm({...form, difficulty: e.target.value})}
+                      >
+                        <option value="beginner">Beginner</option>
+                        <option value="intermediate">Intermediate</option>
+                        <option value="advanced">Advanced</option>
+                        <option value="expert">Expert</option>
+                      </select>
+                      <input
+                        className="bg-neutral-800 border border-neutral-700 rounded-xl px-3 py-2"
+                        type="number"
+                        placeholder="Est. min"
+                        value={form.estimateMin}
+                        onChange={(e) => setForm({...form, estimateMin: Number(e.target.value)})}
+                      />
+                      <button 
+                        type="submit"
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-2 font-semibold shadow"
+                      >
+                        Add Task
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Mini Tasks List */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">Today's Tasks</h2>
+                      <button 
+                        onClick={() => setActiveTab('tasks')}
+                        className="text-sm text-blue-400 hover:text-blue-300"
+                      >
+                        Manage All →
+                      </button>
+                    </div>
+                    {tasks.length === 0 ? (
+                      <div className="text-center py-8 text-neutral-400">
+                        No tasks yet. Add your first task above.
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {tasks.slice(0, 3).map(t => {
+                          const completed = (t.timesCompletedToday || 0) > 0;
+                          return (
+                            <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-neutral-800 border border-neutral-700">
+                              <div className="flex-1">
+                                <div className="font-semibold text-sm">{t.title}</div>
+                                <div className="text-xs text-neutral-400">
+                                  {SUBJECTS[t.subject]?.icon} {t.subSkillName} • {t.baseXP} XP
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => completeTask(t.id)} 
+                                disabled={completed}
+                                className={`px-3 py-1 rounded-lg text-xs font-semibold ${
+                                  completed 
+                                    ? "bg-neutral-700 text-neutral-500 cursor-not-allowed" 
+                                    : "bg-emerald-600 hover:bg-emerald-500 text-white"
+                                }`}
+                              >
+                                {completed ? "Done" : "Complete"}
+                              </button>
+                            </div>
+                          );
+                        })}
+                        {tasks.length > 3 && (
+                          <div className="text-center text-sm text-neutral-400">
+                            +{tasks.length - 3} more tasks - <button 
+                              onClick={() => setActiveTab('tasks')}
+                              className="text-blue-400 hover:text-blue-300"
+                            >
+                              View All
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mini Projects Overview */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">Active Projects</h2>
+                      <button 
+                        onClick={() => setActiveTab('projects')}
+                        className="text-sm text-blue-400 hover:text-blue-300"
+                      >
+                        Manage Projects →
+                      </button>
+                    </div>
+                    {projects.length === 0 ? (
+                      <div className="text-center py-8 text-neutral-400">
+                        No projects yet. Create your first project!
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {projects.filter(p => !p.completedAt).slice(0, 3).map(p => {
+                          const total = p.steps.length;
+                          const done = p.steps.filter(s => s.done).length;
+                          const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+                          
+                          return (
+                            <div key={p.id} className="p-3 rounded-xl bg-neutral-800 border border-neutral-700">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-semibold text-sm">{p.title}</div>
+                                <div className="text-xs text-neutral-400">{done}/{total} steps</div>
+                              </div>
+                              <div className="w-full bg-neutral-700 rounded-full h-2 mb-2">
+                                <div 
+                                  className="bg-indigo-500 h-2 rounded-full transition-all duration-300" 
+                                  style={{ width: `${pct}%` }}
+                                />
+                              </div>
+                              <div className="text-xs text-neutral-500">
+                                {p.dueDate && `Due ${p.dueDate}`} • {p.rewardXP} XP reward
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {projects.filter(p => !p.completedAt).length > 3 && (
+                          <div className="text-center text-sm text-neutral-400">
+                            +{projects.filter(p => !p.completedAt).length - 3} more projects
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Quick Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                    <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                      <div className="text-sm text-neutral-400">Tasks Completed Today</div>
+                      <div className="text-2xl font-bold">{completedToday}</div>
+                    </div>
+                    <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                      <div className="text-sm text-neutral-400">Total XP Today</div>
+                      <div className="text-2xl font-bold">{sumBy(todayLogs, e=> e.type==="task" || e.type==="project" || e.type==="passive")}</div>
+                    </div>
+                    <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-4">
+                      <div className="text-sm text-neutral-400">Active Projects</div>
+                      <div className="text-2xl font-bold">{projects.filter(p => !p.completedAt).length}</div>
+                    </div>
+                  </div>
+
+                  {/* ML Insights */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="text-xl font-semibold">ML Insights & Recommendations</h2>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={analyzeMLPatterns}
+                          className="px-3 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-sm shadow"
+                        >
+                          Analyze Patterns
+                        </button>
+                        <div className="text-xs text-neutral-400">
+                          Confidence: {Math.round((mlData.learning?.confidence || 0.5) * 100)}%
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {mlData.insights && mlData.insights.length > 0 ? (
+                      <div className="space-y-4">
+                        {mlData.insights.map((insight, index) => (
+                          <div key={index} className={`p-4 rounded-xl border ${
+                            insight.type === 'confidence' ? 'bg-purple-950/40 border-purple-800' :
+                            insight.type === 'efficiency' ? 'bg-blue-950/40 border-blue-800' :
+                            'bg-emerald-950/40 border-emerald-800'
+                          }`}>
+                            <div className="font-semibold mb-2">{insight.title}</div>
+                            <div className="text-sm text-neutral-300 mb-2">{insight.description}</div>
+                            <div className="text-xs text-neutral-400 italic">{insight.recommendation}</div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="text-neutral-400 text-center py-8">
+                        Complete more tasks to see ML insights and recommendations
+                      </div>
+                    )}
+                    
+                    {Object.keys(xpLearning.userAdjustments).length > 0 && (
+                      <div className="mt-4 p-3 bg-neutral-800 rounded-xl">
+                        <div className="text-sm font-semibold mb-2">Learning Progress</div>
+                        <div className="text-xs text-neutral-400">
+                          The system has learned from {Object.keys(xpLearning.userAdjustments).length} of your XP adjustments
+                        </div>
+                        <div className="mt-2 text-xs text-neutral-500">
+                          Last analysis: {mlData.lastAnalysis ? new Date(mlData.lastAnalysis).toLocaleString() : 'Never'}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Mini Analytics Preview */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5 mb-6">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">Quick Insights</h2>
+                      <button 
+                        onClick={() => setActiveTab('analytics')}
+                        className="text-sm text-blue-400 hover:text-blue-300"
+                      >
+                        Full Analytics →
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-3 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm font-semibold text-emerald-400 mb-1">Best Work Time</div>
+                        <div className="text-xs text-neutral-400">
+                          {productivityInsights.bestHours.length > 0 
+                            ? `${productivityInsights.bestHours[0].hour}:00 - ${productivityInsights.bestHours[0].hour + 1}:00`
+                            : 'Complete more tasks to see patterns'
+                          }
+                        </div>
+                      </div>
+                      <div className="p-3 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm font-semibold text-indigo-400 mb-1">Top Category</div>
+                        <div className="text-xs text-neutral-400">
+                          {productivityInsights.topCategories.length > 0 
+                            ? productivityInsights.topCategories[0].category
+                            : 'Complete more tasks to see patterns'
+                          }
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-8 text-xs text-neutral-500">
+                    {user ? (
+                      <>Data synced to cloud • Last sync: {cloudBackup.lastSyncTime ? cloudBackup.lastSyncTime.toLocaleString() : 'Never'} • Export/import available</>
+                    ) : (
+                      <>Data stored locally • Sign in to sync across devices • Export/import available</>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {activeTab === 'skills' && (
                 <SkillsTab 
                   activeSubject={activeSubject}
@@ -4127,6 +4925,213 @@
                   log={log}
                   setActiveTab={setActiveTab}
                 />
+              )}
+
+              {activeTab === 'dual-track' && (
+                <div className="space-y-6">
+                  {/* Momentum Track - Level & Banking */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">⚡ Momentum Track</h2>
+                      <div className="text-sm text-neutral-400">
+                        Level {dualTrackData.momentum.level || 1} • {dualTrackData.momentum.coins || 0} coins
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm text-neutral-400 mb-1">Unbanked XP</div>
+                        <div className="text-2xl font-bold text-amber-400">{dualTrackData.momentum.unbankedXP || 0}</div>
+                        <div className="text-xs text-neutral-500">At risk after 2 days</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm text-neutral-400 mb-1">Banking Streak</div>
+                        <div className="text-2xl font-bold text-emerald-400">{dualTrackData.momentum.streak || 0}</div>
+                        <div className="text-xs text-neutral-500">Daily reviews</div>
+                      </div>
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm text-neutral-400 mb-1">Coins Earned</div>
+                        <div className="text-2xl font-bold text-blue-400">{dualTrackData.momentum.coins || 0}</div>
+                        <div className="text-xs text-neutral-500">Available to spend</div>
+                      </div>
+                    </div>
+
+                    {/* Banking Action */}
+                    <div className="bg-neutral-800 rounded-xl p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-semibold">Daily Banking</h3>
+                        <div className="text-xs text-neutral-400">
+                          Last bank: {dualTrackData.momentum.lastBankTime 
+                            ? new Date(dualTrackData.momentum.lastBankTime).toLocaleDateString()
+                            : 'Never'
+                          }
+                        </div>
+                      </div>
+                      
+                      {dualTrackData.momentum.unbankedXP > 0 ? (
+                        <div className="space-y-3">
+                          <div className="text-sm text-neutral-300">
+                            You have {dualTrackData.momentum.unbankedXP} XP waiting to be banked. 
+                            Take a moment to reflect on your progress today.
+                          </div>
+                          <button 
+                            onClick={() => {
+                              const reflection = prompt("Daily reflection (optional): What did you learn today? What will you focus on tomorrow?");
+                              if (reflection !== null) {
+                                const result = bankingSystem.campAction.processBanking(reflection);
+                                pushAlert(`Banked ${result.bankedXP} XP and earned ${result.earnedCoins} coins!`);
+                              }
+                            }}
+                            className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-4 py-3 font-semibold shadow"
+                          >
+                            Bank XP & Earn Coins
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="text-center text-neutral-400 py-4">
+                          No unbanked XP. Complete more tasks to earn momentum XP!
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mastery Track - Evidence & Unlocks */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <h2 className="text-xl font-semibold">🎯 Mastery Track</h2>
+                      <div className="text-sm text-neutral-400">
+                        {dualTrackData.mastery.evidence?.length || 0} evidence pieces
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm text-neutral-400 mb-2">Recent Evidence</div>
+                        <div className="space-y-2">
+                          {dualTrackData.mastery.evidence?.slice(-3).map((evidence, index) => (
+                            <div key={index} className="text-xs p-2 bg-neutral-700 rounded-lg">
+                              <div className="font-semibold">{evidence.subskill}</div>
+                              <div className="text-neutral-400">+{evidence.xp} XP • {evidence.difficulty}</div>
+                            </div>
+                          )) || (
+                            <div className="text-xs text-neutral-500">No evidence yet</div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm text-neutral-400 mb-2">Available Unlocks</div>
+                        <div className="space-y-2">
+                          {Object.entries(DUAL_TRACK_CONFIG.mastery.unlockRequirements).slice(0, 3).map(([unlockName, unlockData]) => (
+                            <div key={unlockName} className="text-xs p-2 bg-neutral-700 rounded-lg">
+                              <div className="font-semibold">{unlockName}</div>
+                              <div className="text-neutral-400">{unlockData.cost} coins • {unlockData.subject}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Unlock Shop */}
+                    <div className="bg-neutral-800 rounded-xl p-4">
+                      <h3 className="font-semibold mb-3">Unlock Shop</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        {Object.entries(DUAL_TRACK_CONFIG.mastery.unlockRequirements).map(([unlockName, unlockData]) => (
+                          <div key={unlockName} className="p-3 bg-neutral-700 rounded-lg">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="font-semibold text-sm">{unlockName}</div>
+                              <div className="text-xs text-blue-400">{unlockData.cost} coins</div>
+                            </div>
+                            <div className="text-xs text-neutral-400 mb-2">
+                              Subject: {unlockData.subject} • Requirements: {JSON.stringify(unlockData.requirements)}
+                            </div>
+                            <button 
+                              onClick={() => {
+                                if ((dualTrackData.momentum.coins || 0) >= unlockData.cost) {
+                                  setDualTrackData(prev => ({
+                                    ...prev,
+                                    momentum: {
+                                      ...prev.momentum,
+                                      coins: prev.momentum.coins - unlockData.cost
+                                    },
+                                    mastery: {
+                                      ...prev.mastery,
+                                      unlocks: {
+                                        ...prev.mastery.unlocks,
+                                        [unlockName]: true
+                                      }
+                                    }
+                                  }));
+                                  pushAlert(`Unlocked ${unlockName}!`);
+                                } else {
+                                  pushAlert("Not enough coins!", "error");
+                                }
+                              }}
+                              disabled={(dualTrackData.momentum.coins || 0) < unlockData.cost || dualTrackData.mastery.unlocks?.[unlockName]}
+                              className={`w-full px-3 py-2 rounded-lg text-xs font-semibold ${
+                                dualTrackData.mastery.unlocks?.[unlockName] 
+                                  ? 'bg-neutral-600 text-neutral-400 cursor-not-allowed'
+                                  : (dualTrackData.momentum.coins || 0) >= unlockData.cost
+                                    ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                                    : 'bg-neutral-600 text-neutral-400 cursor-not-allowed'
+                              }`}
+                            >
+                              {dualTrackData.mastery.unlocks?.[unlockName] ? 'Unlocked' : 'Unlock'}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Progression Overview */}
+                  <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-5">
+                    <h2 className="text-xl font-semibold mb-4">📊 Progression Overview</h2>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm font-semibold mb-3">Daily Progress</div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">Tasks Completed:</span>
+                            <span>{dualTrackData.progression.dailyTasksCompleted || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">Total Tasks:</span>
+                            <span>{dualTrackData.progression.totalTasksCompleted || 0}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">Last Level Up:</span>
+                            <span>{dualTrackData.progression.lastLevelUp 
+                              ? new Date(dualTrackData.progression.lastLevelUp).toLocaleDateString()
+                              : 'Never'
+                            }</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-neutral-800 border border-neutral-700">
+                        <div className="text-sm font-semibold mb-3">System Status</div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">ML Confidence:</span>
+                            <span>{Math.round((mlData.learning?.confidence || 0.5) * 100)}%</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">Auto-XP Mode:</span>
+                            <span className={settings.autoXPMode ? 'text-emerald-400' : 'text-neutral-400'}>
+                              {settings.autoXPMode ? 'Enabled' : 'Disabled'}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-neutral-400">User Level:</span>
+                            <span>{settings.userLevel}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
 
               {activeTab === 'tasks' && (
