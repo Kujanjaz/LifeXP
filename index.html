@@ -205,6 +205,571 @@
         }
       };
 
+      // ================== ENHANCED ASSESSMENT SYSTEM ==================
+      
+      // 1. PERFORMANCE TRACKING SYSTEM
+      const PERFORMANCE_TRACKING = {
+        // Enhanced task completion data
+        trackTaskCompletion: (task, completionData) => {
+          return {
+            taskId: task.id,
+            completionTime: completionData.timeSpent, // minutes
+            accuracy: completionData.accuracy || 0.8, // 0-1 scale
+            difficultyRating: completionData.difficultyRating || 0.5, // User's perception
+            attempts: completionData.attempts || 1,
+            hintsUsed: completionData.hintsUsed || 0,
+            confidenceLevel: completionData.confidenceLevel || 0.7,
+            timestamp: Date.now(),
+            subject: task.subject,
+            subSkill: task.subSkill
+          };
+        },
+
+        // Calculate learning efficiency
+        calculateEfficiency: (performanceData) => {
+          const timeEfficiency = 1 / Math.max(0.1, performanceData.completionTime / (performanceData.estimatedTime || 60));
+          const accuracyBonus = Math.pow(performanceData.accuracy, 2);
+          const confidenceBonus = performanceData.confidenceLevel;
+          const attemptPenalty = Math.pow(0.8, performanceData.attempts - 1);
+          const hintPenalty = Math.pow(0.9, performanceData.hintsUsed);
+
+          return {
+            overallEfficiency: timeEfficiency * accuracyBonus * confidenceBonus * attemptPenalty * hintPenalty,
+            timeEfficiency,
+            accuracyBonus,
+            confidenceBonus,
+            attemptPenalty,
+            hintPenalty
+          };
+        },
+
+        // Adaptive difficulty calculation
+        calculateAdaptiveDifficulty: (userHistory, skill) => {
+          const recentTasks = userHistory.filter(h => h.subSkill === skill).slice(-10);
+          if (recentTasks.length === 0) return 0.5;
+
+          const avgAccuracy = recentTasks.reduce((sum, t) => sum + t.accuracy, 0) / recentTasks.length;
+          const avgConfidence = recentTasks.reduce((sum, t) => sum + t.confidenceLevel, 0) / recentTasks.length;
+          const avgTimeEfficiency = recentTasks.reduce((sum, t) => sum + (t.completionTime / (t.estimatedTime || 60)), 0) / recentTasks.length;
+
+          // Increase difficulty if performing well, decrease if struggling
+          let newDifficulty = 0.5;
+          if (avgAccuracy > 0.9 && avgConfidence > 0.8 && avgTimeEfficiency > 1.2) {
+            newDifficulty = Math.min(1.0, 0.5 + (avgAccuracy - 0.9) * 2);
+          } else if (avgAccuracy < 0.7 || avgConfidence < 0.6) {
+            newDifficulty = Math.max(0.1, 0.5 - (0.7 - avgAccuracy) * 2);
+          }
+
+          return newDifficulty;
+        }
+      };
+
+      // 2. EVIDENCE SUBMISSION SYSTEM
+      const EVIDENCE_SYSTEM = {
+        // Evidence types and requirements
+        evidenceTypes: {
+          'explain_solutions': {
+            name: 'Explain Solutions',
+            description: 'Explain your problem-solving approach step by step',
+            requirements: {
+              'novice': { count: 2, complexity: 'basic' },
+              'apprentice': { count: 3, complexity: 'intermediate' },
+              'proficient': { count: 5, complexity: 'advanced' },
+              'advanced': { count: 8, complexity: 'expert' },
+              'expert': { count: 10, complexity: 'master' }
+            }
+          },
+          'teach_concepts': {
+            name: 'Teach Concepts',
+            description: 'Create explanations to teach others',
+            requirements: {
+              'novice': { count: 1, format: 'written' },
+              'apprentice': { count: 2, format: 'written' },
+              'proficient': { count: 3, format: 'mixed' },
+              'advanced': { count: 4, format: 'video' },
+              'expert': { count: 5, format: 'interactive' }
+            }
+          },
+          'identify_mistakes': {
+            name: 'Error Detection',
+            description: 'Find and explain errors in incorrect solutions',
+            requirements: {
+              'novice': { count: 3, types: ['calculation'] },
+              'apprentice': { count: 5, types: ['calculation', 'concept'] },
+              'proficient': { count: 8, types: ['calculation', 'concept', 'method'] },
+              'advanced': { count: 10, types: ['all'] },
+              'expert': { count: 15, types: ['all', 'subtle'] }
+            }
+          },
+          'apply_knowledge': {
+            name: 'Real Applications',
+            description: 'Apply skills to solve real-world problems',
+            requirements: {
+              'novice': { count: 1, domain: 'academic' },
+              'apprentice': { count: 2, domain: 'academic' },
+              'proficient': { count: 3, domain: 'professional' },
+              'advanced': { count: 4, domain: 'professional' },
+              'expert': { count: 5, domain: 'research' }
+            }
+          }
+        },
+
+        // Submit evidence
+        submitEvidence: (skill, evidenceType, content, userTier) => {
+          const evidence = {
+            id: `evidence_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            skill,
+            type: evidenceType,
+            content,
+            tier: userTier,
+            timestamp: Date.now(),
+            status: 'pending_review',
+            aiScore: null,
+            feedback: null
+          };
+
+          return evidence;
+        },
+
+        // Check evidence requirements
+        checkEvidenceRequirements: (skill, userTier, submittedEvidence) => {
+          const requirements = {};
+          let totalRequired = 0;
+          let totalSubmitted = 0;
+
+          Object.entries(EVIDENCE_SYSTEM.evidenceTypes).forEach(([type, config]) => {
+            const required = config.requirements[userTier]?.count || 0;
+            const submitted = submittedEvidence.filter(e => e.type === type && e.skill === skill).length;
+            
+            requirements[type] = {
+              required,
+              submitted,
+              complete: submitted >= required
+            };
+            
+            totalRequired += required;
+            totalSubmitted += submitted;
+          });
+
+          return {
+            requirements,
+            totalRequired,
+            totalSubmitted,
+            overallComplete: totalSubmitted >= totalRequired,
+            progressPercentage: totalRequired > 0 ? (totalSubmitted / totalRequired) * 100 : 0
+          };
+        }
+      };
+
+      // 3. SPACED TESTING SYSTEM
+      const SPACED_TESTING = {
+        // Review intervals based on performance
+        intervals: {
+          'excellent': [7, 21, 60, 180], // days
+          'good': [3, 10, 30, 90],
+          'fair': [1, 5, 15, 45],
+          'poor': [1, 2, 7, 21]
+        },
+
+        // Test types
+        testTypes: {
+          'quick_test': {
+            name: 'Quick Recall',
+            duration: 10, // minutes
+            questions: 5,
+            focus: 'basic_recall'
+          },
+          'application': {
+            name: 'Application',
+            duration: 30,
+            questions: 3,
+            focus: 'problem_solving'
+          },
+          'comprehensive': {
+            name: 'Comprehensive',
+            duration: 60,
+            questions: 10,
+            focus: 'full_mastery'
+          }
+        },
+
+        // Schedule next review
+        scheduleNextReview: (skill, performance, currentMastery) => {
+          const performanceLevel = performance >= 0.9 ? 'excellent' : 
+                                 performance >= 0.8 ? 'good' :
+                                 performance >= 0.7 ? 'fair' : 'poor';
+          
+          const intervals = SPACED_TESTING.intervals[performanceLevel];
+          const masteryIndex = Math.min(Math.floor(currentMastery * intervals.length), intervals.length - 1);
+          const nextInterval = intervals[masteryIndex];
+
+          return {
+            nextReview: Date.now() + (nextInterval * 24 * 60 * 60 * 1000),
+            interval: nextInterval,
+            testType: masteryIndex === 0 ? 'quick_test' : 
+                     masteryIndex < 2 ? 'application' : 'comprehensive',
+            performanceLevel
+          };
+        },
+
+        // Generate test questions
+        generateTestQuestions: (skill, testType, difficulty) => {
+          const questionTemplates = {
+            'differential_calculus': {
+              'basic_recall': [
+                'What is the derivative of x^n?',
+                'State the product rule for differentiation',
+                'What is the chain rule?'
+              ],
+              'problem_solving': [
+                'Find the derivative of f(x) = (x² + 1)³',
+                'Use the quotient rule to differentiate f(x) = (2x + 1)/(x - 1)',
+                'Find dy/dx for y = sin(x² + 1)'
+              ],
+              'full_mastery': [
+                'Optimize the area of a rectangle with perimeter 20',
+                'Find the equation of the tangent line to y = x³ - 3x at x = 2',
+                'Analyze the critical points of f(x) = x⁴ - 4x³ + 6x²'
+              ]
+            }
+          };
+
+          const templates = questionTemplates[skill]?.[testType] || [];
+          return templates.slice(0, SPACED_TESTING.testTypes[testType].questions);
+        }
+      };
+
+      // 4. AI REVIEW SYSTEM
+      const AI_REVIEW_SYSTEM = {
+        // AI questioning templates by skill and level
+        questionTemplates: {
+          'differential_calculus': {
+            'conceptual': [
+              'Why did you choose to use the product rule instead of the chain rule in this solution?',
+              'Can you explain what the derivative represents in the context of this problem?',
+              'What would happen to the derivative if we changed the function slightly?',
+              'How does this relate to the concept of instantaneous rate of change?'
+            ],
+            'procedural': [
+              'Walk me through each step of your differentiation process',
+              'Why did you simplify the expression in this particular way?',
+              'What alternative methods could you have used to solve this?',
+              'How do you know when to stop simplifying?'
+            ],
+            'problem_solving': [
+              'What was your strategy for approaching this type of problem?',
+              'How did you recognize which differentiation rule to apply?',
+              'What would you do differently if this was a more complex function?',
+              'Can you create a similar problem that tests the same concept?'
+            ],
+            'application': [
+              'How could this type of derivative be useful in real-world applications?',
+              'What other fields of study use similar mathematical concepts?',
+              'Can you think of a physical situation this derivative might describe?'
+            ]
+          }
+        },
+
+        // Generate AI questions based on user responses
+        generateQuestions: (skill, userTier, recentPerformance) => {
+          const templates = AI_REVIEW_SYSTEM.questionTemplates[skill];
+          if (!templates) return [];
+
+          // Select question types based on tier and performance
+          let questionTypes = [];
+          if (userTier === 'novice' || userTier === 'apprentice') {
+            questionTypes = ['conceptual', 'procedural'];
+          } else if (userTier === 'proficient') {
+            questionTypes = ['conceptual', 'procedural', 'problem_solving'];
+          } else {
+            questionTypes = ['conceptual', 'procedural', 'problem_solving', 'application'];
+          }
+
+          // Generate 2-4 questions based on performance
+          const questionCount = recentPerformance < 0.7 ? 4 : recentPerformance < 0.9 ? 3 : 2;
+          const questions = [];
+
+          for (let i = 0; i < questionCount; i++) {
+            const type = questionTypes[i % questionTypes.length];
+            const typeQuestions = templates[type] || [];
+            if (typeQuestions.length > 0) {
+              questions.push({
+                type,
+                question: typeQuestions[Math.floor(Math.random() * typeQuestions.length)],
+                difficulty: userTier
+              });
+            }
+          }
+
+          return questions;
+        },
+
+        // Assess user responses
+        assessResponse: (question, userResponse, skill, userTier) => {
+          // This would integrate with an AI service in a real implementation
+          // For now, we'll simulate assessment based on response length and keywords
+          const assessment = {
+            conceptualUnderstanding: 0.7,
+            proceduralFluency: 0.8,
+            problemSolving: 0.6,
+            communication: 0.75,
+            overallScore: 0.71
+          };
+
+          // Simulate AI analysis based on response characteristics
+          const responseLength = userResponse.length;
+          const hasKeywords = AI_REVIEW_SYSTEM.checkKeywords(userResponse, skill);
+          const hasExplanation = userResponse.includes('because') || userResponse.includes('since') || userResponse.includes('therefore');
+
+          if (responseLength > 100 && hasKeywords && hasExplanation) {
+            assessment.overallScore = Math.min(1.0, assessment.overallScore + 0.2);
+          }
+
+          return {
+            ...assessment,
+            feedback: AI_REVIEW_SYSTEM.generateFeedback(assessment, question.type),
+            suggestions: AI_REVIEW_SYSTEM.generateSuggestions(assessment, skill)
+          };
+        },
+
+        // Check for relevant keywords in responses
+        checkKeywords: (response, skill) => {
+          const keywords = {
+            'differential_calculus': ['derivative', 'differentiation', 'chain rule', 'product rule', 'quotient rule', 'limit', 'rate of change']
+          };
+
+          const skillKeywords = keywords[skill] || [];
+          return skillKeywords.some(keyword => response.toLowerCase().includes(keyword.toLowerCase()));
+        },
+
+        // Generate feedback based on assessment
+        generateFeedback: (assessment, questionType) => {
+          const feedbacks = {
+            'conceptual': [
+              'Good conceptual understanding! Consider explaining the "why" behind your approach.',
+              'Your conceptual grasp is solid. Try connecting this to broader mathematical principles.',
+              'Strong conceptual foundation. Work on articulating the underlying mathematical reasoning.'
+            ],
+            'procedural': [
+              'Excellent procedural fluency! Your step-by-step approach is clear and methodical.',
+              'Good procedural skills. Consider explaining why each step is necessary.',
+              'Solid procedural understanding. Practice explaining the reasoning behind each step.'
+            ],
+            'problem_solving': [
+              'Great problem-solving approach! Your strategy shows good mathematical thinking.',
+              'Good problem-solving skills. Consider alternative approaches and compare their effectiveness.',
+              'Solid problem-solving foundation. Work on developing multiple solution strategies.'
+            ]
+          };
+
+          const typeFeedbacks = feedbacks[questionType] || feedbacks['conceptual'];
+          return typeFeedbacks[Math.floor(Math.random() * typeFeedbacks.length)];
+        },
+
+        // Generate improvement suggestions
+        generateSuggestions: (assessment, skill) => {
+          const suggestions = [];
+          
+          if (assessment.conceptualUnderstanding < 0.8) {
+            suggestions.push('Practice explaining concepts in your own words');
+          }
+          if (assessment.proceduralFluency < 0.8) {
+            suggestions.push('Work through more step-by-step examples');
+          }
+          if (assessment.problemSolving < 0.8) {
+            suggestions.push('Try solving problems using different approaches');
+          }
+          if (assessment.communication < 0.8) {
+            suggestions.push('Practice explaining your reasoning clearly');
+          }
+
+          return suggestions;
+        }
+      };
+
+      // 5. BOSS FIGHT SYSTEM
+      const BOSS_FIGHT_SYSTEM = {
+        // Boss fight definitions
+        bossFights: {
+          'calculus_boss': {
+            id: 'calculus_boss',
+            name: 'The Optimization Dragon',
+            description: 'A legendary engineering challenge requiring mastery of differential calculus',
+            icon: '🐉',
+            requirements: {
+              prerequisiteSkills: ['differential_calculus'],
+              evidenceThreshold: 0.9,
+              performanceThreshold: 0.85,
+              timeLimit: 120 // minutes
+            },
+            challenge: {
+              type: 'real_world_optimization',
+              scenario: 'Design the most efficient rectangular storage container',
+              constraints: [
+                'Volume must be exactly 1000 cubic meters',
+                'Material costs $10 per square meter for sides',
+                'Material costs $15 per square meter for top and bottom',
+                'Find dimensions that minimize total cost'
+              ],
+              deliverables: [
+                'Mathematical solution with all steps',
+                'Verification of critical point',
+                'Explanation of why this is the optimal solution',
+                'Real-world considerations and limitations'
+              ]
+            },
+            rewards: {
+              unlocks: ['integral_calculus', 'multivariable_calculus'],
+              xp: 500,
+              coins: 100,
+              title: 'Calculus Master',
+              badge: '🏆',
+              achievements: ['dragon_slayer', 'optimization_expert']
+            }
+          },
+          'programming_boss': {
+            id: 'programming_boss',
+            name: 'The Algorithm Phoenix',
+            description: 'A complex programming challenge requiring mastery of data structures and algorithms',
+            icon: '🔥',
+            requirements: {
+              prerequisiteSkills: ['data_structures', 'algorithms'],
+              evidenceThreshold: 0.9,
+              performanceThreshold: 0.85,
+              timeLimit: 180
+            },
+            challenge: {
+              type: 'system_design',
+              scenario: 'Design and implement a real-time recommendation system',
+              constraints: [
+                'Must handle 1 million users',
+                'Response time under 100ms',
+                'Memory usage under 1GB',
+                'Implement efficient data structures'
+              ],
+              deliverables: [
+                'System architecture diagram',
+                'Core algorithm implementation',
+                'Performance analysis',
+                'Scalability considerations'
+              ]
+            },
+            rewards: {
+              unlocks: ['system_design', 'machine_learning'],
+              xp: 600,
+              coins: 150,
+              title: 'Algorithm Master',
+              badge: '🔥',
+              achievements: ['phoenix_riser', 'system_architect']
+            }
+          }
+        },
+
+        // Check if user is ready for boss fight
+        checkBossFightEligibility: (userProfile, bossFightId) => {
+          const bossFight = BOSS_FIGHT_SYSTEM.bossFights[bossFightId];
+          if (!bossFight) return { eligible: false, reason: 'Boss fight not found' };
+
+          const requirements = bossFight.requirements;
+          
+          // Check prerequisite skills
+          const hasPrerequisites = requirements.prerequisiteSkills.every(skill => {
+            const skillData = userProfile.skillMastery[skill];
+            return skillData && skillData.masteryLevel >= requirements.evidenceThreshold;
+          });
+
+          if (!hasPrerequisites) {
+            return { eligible: false, reason: 'Missing prerequisite skills' };
+          }
+
+          // Check performance threshold
+          const recentPerformance = userProfile.performanceHistory.slice(-10);
+          const avgPerformance = recentPerformance.reduce((sum, p) => sum + p.score, 0) / recentPerformance.length;
+          
+          if (avgPerformance < requirements.performanceThreshold) {
+            return { eligible: false, reason: 'Performance below threshold' };
+          }
+
+          return { eligible: true };
+        },
+
+        // Start boss fight
+        startBossFight: (bossFightId, userProfile) => {
+          const bossFight = BOSS_FIGHT_SYSTEM.bossFights[bossFightId];
+          if (!bossFight) return null;
+
+          const eligibility = BOSS_FIGHT_SYSTEM.checkBossFightEligibility(userProfile, bossFightId);
+          if (!eligibility.eligible) {
+            return { error: eligibility.reason };
+          }
+
+          return {
+            id: bossFightId,
+            name: bossFight.name,
+            description: bossFight.description,
+            icon: bossFight.icon,
+            challenge: bossFight.challenge,
+            timeLimit: bossFight.requirements.timeLimit,
+            startTime: Date.now(),
+            status: 'active',
+            progress: 0,
+            deliverables: bossFight.challenge.deliverables.map(d => ({
+              description: d,
+              status: 'pending',
+              submission: null,
+              score: null
+            }))
+          };
+        },
+
+        // Submit boss fight deliverable
+        submitDeliverable: (bossFight, deliverableIndex, submission) => {
+          if (!bossFight || !bossFight.deliverables[deliverableIndex]) {
+            return { error: 'Invalid deliverable' };
+          }
+
+          bossFight.deliverables[deliverableIndex].submission = submission;
+          bossFight.deliverables[deliverableIndex].status = 'submitted';
+          
+          // Calculate progress
+          const completed = bossFight.deliverables.filter(d => d.status === 'submitted' || d.status === 'completed').length;
+          bossFight.progress = (completed / bossFight.deliverables.length) * 100;
+
+          return bossFight;
+        },
+
+        // Complete boss fight
+        completeBossFight: (bossFight, userProfile) => {
+          if (bossFight.progress < 100) {
+            return { error: 'Not all deliverables completed' };
+          }
+
+          // Calculate final score based on deliverables
+          const totalScore = bossFight.deliverables.reduce((sum, d) => sum + (d.score || 0.8), 0);
+          const averageScore = totalScore / bossFight.deliverables.length;
+
+          const bossFightData = BOSS_FIGHT_SYSTEM.bossFights[bossFight.id];
+          const passed = averageScore >= 0.7; // 70% threshold to pass
+
+          if (passed) {
+            return {
+              success: true,
+              score: averageScore,
+              rewards: bossFightData.rewards,
+              completionTime: Date.now() - bossFight.startTime,
+              message: `Congratulations! You defeated ${bossFight.name}!`
+            };
+          } else {
+            return {
+              success: false,
+              score: averageScore,
+              message: `You were defeated by ${bossFight.name}. Try again when you're stronger!`,
+              retryAfter: Date.now() + (24 * 60 * 60 * 1000) // 24 hours
+            };
+          }
+        }
+      };
+
       // ================== BLENDED PROGRESSION SYSTEM ==================
       
       // 1. COMPETENCY-BASED PROGRESSION SYSTEM
@@ -1710,8 +2275,8 @@
             'calculus_sequence': {
               id: 'calculus_sequence',
               name: 'Calculus Sequence',
-              xpRequired: 800,
-              unlockRequirements: { tasksCompleted: 20, prerequisites: ['pre_calculus'] },
+              xpRequired: 0,
+              unlockRequirements: { tasksCompleted: 0, prerequisites: [] },
               subSkills: {
                 'limits_continuity': {
                   id: 'limits_continuity',
@@ -1724,8 +2289,8 @@
                 'differential_calculus': {
                   id: 'differential_calculus',
                   name: 'Differential Calculus',
-                  xpRequired: 200,
-                  unlockRequirements: { tasksCompleted: 8, prerequisites: ['limits_continuity'] },
+                  xpRequired: 0,
+                  unlockRequirements: { tasksCompleted: 0, prerequisites: [] },
                   baseXP: 35,
                   masteryLevels: ['Novice', 'Apprentice', 'Proficient', 'Advanced', 'Expert']
                 },
@@ -3697,6 +4262,15 @@
             masteryMilestones: []
           }
         });
+
+        // Enhanced Assessment System State
+        const [performanceHistory, setPerformanceHistory] = useLocalStorage("lifexp.performanceHistory", []);
+        const [evidenceSubmissions, setEvidenceSubmissions] = useLocalStorage("lifexp.evidenceSubmissions", []);
+        const [spacedTests, setSpacedTests] = useLocalStorage("lifexp.spacedTests", []);
+        const [aiReviews, setAiReviews] = useLocalStorage("lifexp.aiReviews", []);
+        const [activeBossFight, setActiveBossFight] = useLocalStorage("lifexp.activeBossFight", null);
+        const [bossFightHistory, setBossFightHistory] = useLocalStorage("lifexp.bossFightHistory", []);
+
         const [dateInfo, setDateInfo] = useLocalStorage("lifexp.dateInfo", { lastOpen: todayISO() });
         const [log, setLog] = useLocalStorage("lifexp.log", []); // {id,date,ts,type,amount,meta}
         const [session, setSession] = useLocalStorage("lifexp.session", null); // passive focus running
@@ -5472,6 +6046,411 @@
           );
         };
 
+        // ================== ENHANCED ASSESSMENT TAB COMPONENT ==================
+        
+        const EnhancedAssessmentTab = ({ 
+          performanceHistory,
+          evidenceSubmissions,
+          spacedTests,
+          aiReviews,
+          activeBossFight,
+          bossFightHistory,
+          setPerformanceHistory,
+          setEvidenceSubmissions,
+          setSpacedTests,
+          setAiReviews,
+          setActiveBossFight,
+          setBossFightHistory,
+          performanceTracking,
+          evidenceSystem,
+          spacedTesting,
+          aiReviewSystem,
+          bossFightSystem,
+          tasks,
+          log,
+          settings
+        }) => {
+          // Calculate current user profile
+          const userProfile = {
+            skillMastery: {},
+            performanceHistory: performanceHistory.slice(-20),
+            currentTier: 'novice'
+          };
+
+          // Get available boss fights
+          const availableBossFights = Object.entries(bossFightSystem.bossFights).map(([id, bossFight]) => {
+            const eligibility = bossFightSystem.checkBossFightEligibility(userProfile, id);
+            return {
+              ...bossFight,
+              eligible: eligibility.eligible,
+              reason: eligibility.reason
+            };
+          });
+
+          return (
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="text-3xl">🎓</div>
+                  <div>
+                    <h1 className="text-2xl font-bold">Enhanced Assessment System</h1>
+                    <p className="text-neutral-400">Advanced learning assessment with AI review and boss fights</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="p-4 bg-blue-950/30 border border-blue-800 rounded-xl">
+                    <div className="text-lg font-semibold text-blue-300 mb-2">📊 Performance Tracking</div>
+                    <div className="text-sm text-neutral-300">Track accuracy, time, and difficulty</div>
+                  </div>
+                  <div className="p-4 bg-purple-950/30 border border-purple-800 rounded-xl">
+                    <div className="text-lg font-semibold text-purple-300 mb-2">📝 Evidence Submission</div>
+                    <div className="text-sm text-neutral-300">Submit explanations and teaching</div>
+                  </div>
+                  <div className="p-4 bg-emerald-950/30 border border-emerald-800 rounded-xl">
+                    <div className="text-lg font-semibold text-emerald-300 mb-2">⏰ Spaced Testing</div>
+                    <div className="text-sm text-neutral-300">Regular knowledge reviews</div>
+                  </div>
+                  <div className="p-4 bg-amber-950/30 border border-amber-800 rounded-xl">
+                    <div className="text-lg font-semibold text-amber-300 mb-2">🤖 AI Review</div>
+                    <div className="text-sm text-neutral-300">AI questioning and assessment</div>
+                  </div>
+                  <div className="p-4 bg-red-950/30 border border-red-800 rounded-xl">
+                    <div className="text-lg font-semibold text-red-300 mb-2">⚔️ Boss Fights</div>
+                    <div className="text-sm text-neutral-300">Mastery challenges to unlock progression</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Performance Tracking */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">📊 Performance Tracking</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Recent Performance</h3>
+                    {performanceHistory.length === 0 ? (
+                      <div className="text-neutral-400 text-center py-4">
+                        No performance data yet. Complete tasks to start tracking!
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {performanceHistory.slice(-5).map((performance, index) => (
+                          <div key={index} className="p-3 bg-neutral-800 rounded-xl">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-semibold text-sm">{performance.subSkill}</span>
+                              <span className="text-emerald-400 font-bold">{Math.round(performance.accuracy * 100)}%</span>
+                            </div>
+                            <div className="text-xs text-neutral-400">
+                              {performance.completionTime}min • {performance.attempts} attempts • {performance.hintsUsed} hints
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Performance Metrics</h3>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-3 bg-neutral-800 rounded-xl text-center">
+                        <div className="text-lg font-bold text-blue-400">
+                          {performanceHistory.length > 0 ? Math.round(
+                            performanceHistory.reduce((sum, p) => sum + p.accuracy, 0) / performanceHistory.length * 100
+                          ) : 0}%
+                        </div>
+                        <div className="text-xs text-neutral-400">Avg Accuracy</div>
+                      </div>
+                      <div className="p-3 bg-neutral-800 rounded-xl text-center">
+                        <div className="text-lg font-bold text-purple-400">
+                          {performanceHistory.length > 0 ? Math.round(
+                            performanceHistory.reduce((sum, p) => sum + p.confidenceLevel, 0) / performanceHistory.length * 100
+                          ) : 0}%
+                        </div>
+                        <div className="text-xs text-neutral-400">Avg Confidence</div>
+                      </div>
+                      <div className="p-3 bg-neutral-800 rounded-xl text-center">
+                        <div className="text-lg font-bold text-emerald-400">
+                          {performanceHistory.length > 0 ? Math.round(
+                            performanceHistory.reduce((sum, p) => sum + p.completionTime, 0) / performanceHistory.length
+                          ) : 0}min
+                        </div>
+                        <div className="text-xs text-neutral-400">Avg Time</div>
+                      </div>
+                      <div className="p-3 bg-neutral-800 rounded-xl text-center">
+                        <div className="text-lg font-bold text-amber-400">
+                          {performanceHistory.length}
+                        </div>
+                        <div className="text-xs text-neutral-400">Total Tasks</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Evidence Submission */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">📝 Evidence Submission</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                  {Object.entries(evidenceSystem.evidenceTypes).map(([type, config]) => (
+                    <div key={type} className="p-4 bg-neutral-800 border border-neutral-700 rounded-xl">
+                      <div className="font-semibold text-sm mb-2">{config.name}</div>
+                      <div className="text-xs text-neutral-400 mb-3">{config.description}</div>
+                      <div className="text-xs text-neutral-500">
+                        {evidenceSubmissions.filter(e => e.type === type).length} submitted
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-neutral-800 rounded-xl p-4">
+                  <h3 className="font-semibold mb-3">Submit Evidence</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <select className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
+                      <option>Select Skill</option>
+                      <option>Differential Calculus</option>
+                      <option>Algebra I</option>
+                    </select>
+                    <select className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
+                      <option>Select Evidence Type</option>
+                      <option>Explain Solutions</option>
+                      <option>Teach Concepts</option>
+                      <option>Error Detection</option>
+                      <option>Real Applications</option>
+                    </select>
+                  </div>
+                  <textarea 
+                    className="w-full mt-3 bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 h-24"
+                    placeholder="Describe your evidence submission..."
+                  ></textarea>
+                  <button className="mt-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-semibold">
+                    Submit Evidence
+                  </button>
+                </div>
+              </div>
+
+              {/* Spaced Testing */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">⏰ Spaced Testing</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 bg-neutral-800 rounded-xl">
+                    <h3 className="font-semibold mb-3">Upcoming Reviews</h3>
+                    {spacedTests.length === 0 ? (
+                      <div className="text-neutral-400 text-sm">No scheduled reviews</div>
+                    ) : (
+                      <div className="space-y-2">
+                        {spacedTests.slice(0, 3).map((test, index) => (
+                          <div key={index} className="text-sm">
+                            <div className="font-semibold">{test.skill}</div>
+                            <div className="text-neutral-400">{test.testType} • {Math.round((test.nextReview - Date.now()) / (1000 * 60 * 60 * 24))} days</div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 bg-neutral-800 rounded-xl">
+                    <h3 className="font-semibold mb-3">Test Types</h3>
+                    <div className="space-y-2 text-sm">
+                      {Object.entries(spacedTesting.testTypes).map(([type, config]) => (
+                        <div key={type} className="flex justify-between">
+                          <span>{config.name}</span>
+                          <span className="text-neutral-400">{config.duration}min</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="p-4 bg-neutral-800 rounded-xl">
+                    <h3 className="font-semibold mb-3">Start Review</h3>
+                    <select className="w-full mb-3 bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
+                      <option>Select Skill</option>
+                      <option>Differential Calculus</option>
+                      <option>Algebra I</option>
+                    </select>
+                    <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2 font-semibold">
+                      Start Test
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Review */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">🤖 AI Review</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Recent AI Reviews</h3>
+                    {aiReviews.length === 0 ? (
+                      <div className="text-neutral-400 text-center py-4">
+                        No AI reviews yet. Start a review to test your understanding!
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {aiReviews.slice(-3).map((review, index) => (
+                          <div key={index} className="p-3 bg-neutral-800 rounded-xl">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-semibold text-sm">{review.skill}</span>
+                              <span className="text-emerald-400 font-bold">{Math.round(review.overallScore * 100)}%</span>
+                            </div>
+                            <div className="text-xs text-neutral-400 mb-2">{review.feedback}</div>
+                            <div className="text-xs text-neutral-500">
+                              {new Date(review.timestamp).toLocaleDateString()}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="font-semibold">Start AI Review</h3>
+                    <div className="space-y-3">
+                      <select className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
+                        <option>Select Skill</option>
+                        <option>Differential Calculus</option>
+                        <option>Algebra I</option>
+                      </select>
+                      <button className="w-full bg-purple-600 hover:bg-purple-500 text-white rounded-lg px-3 py-2 font-semibold">
+                        Start AI Review
+                      </button>
+                    </div>
+                    
+                    <div className="p-3 bg-neutral-800 rounded-xl">
+                      <h4 className="font-semibold text-sm mb-2">AI Review Benefits</h4>
+                      <ul className="text-xs text-neutral-400 space-y-1">
+                        <li>• Test conceptual understanding</li>
+                        <li>• Get personalized feedback</li>
+                        <li>• Identify knowledge gaps</li>
+                        <li>• Improve communication skills</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Boss Fights */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">⚔️ Boss Fights</h2>
+                
+                {activeBossFight ? (
+                  <div className="bg-gradient-to-r from-red-900/20 to-orange-900/20 border border-red-800/50 rounded-xl p-6">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="text-3xl">{activeBossFight.icon}</div>
+                      <div>
+                        <h3 className="text-xl font-bold">{activeBossFight.name}</h3>
+                        <p className="text-neutral-400">{activeBossFight.description}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h4 className="font-semibold mb-3">Challenge</h4>
+                        <div className="bg-neutral-800 rounded-lg p-4 mb-4">
+                          <div className="font-semibold text-sm mb-2">{activeBossFight.challenge.scenario}</div>
+                          <div className="text-xs text-neutral-400 space-y-1">
+                            {activeBossFight.challenge.constraints.map((constraint, index) => (
+                              <div key={index}>• {constraint}</div>
+                            ))}
+                          </div>
+                        </div>
+                        
+                        <div className="text-sm">
+                          <div className="flex justify-between mb-1">
+                            <span>Progress</span>
+                            <span>{Math.round(activeBossFight.progress)}%</span>
+                          </div>
+                          <div className="w-full bg-neutral-700 rounded-full h-2">
+                            <div 
+                              className="bg-red-500 h-2 rounded-full transition-all duration-300"
+                              style={{ width: `${activeBossFight.progress}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div>
+                        <h4 className="font-semibold mb-3">Deliverables</h4>
+                        <div className="space-y-2">
+                          {activeBossFight.deliverables.map((deliverable, index) => (
+                            <div key={index} className={`p-2 rounded-lg text-sm ${
+                              deliverable.status === 'completed' ? 'bg-emerald-900/30 border border-emerald-800' :
+                              deliverable.status === 'submitted' ? 'bg-blue-900/30 border border-blue-800' :
+                              'bg-neutral-800 border border-neutral-700'
+                            }`}>
+                              <div className="font-semibold">{deliverable.description}</div>
+                              <div className="text-xs text-neutral-400 capitalize">{deliverable.status}</div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        <button className="w-full mt-4 bg-red-600 hover:bg-red-500 text-white rounded-lg px-3 py-2 font-semibold">
+                          Submit Deliverable
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {availableBossFights.map((bossFight) => (
+                      <div key={bossFight.id} className={`p-6 rounded-xl border ${
+                        bossFight.eligible 
+                          ? 'bg-gradient-to-r from-red-900/20 to-orange-900/20 border-red-800/50' 
+                          : 'bg-neutral-800 border-neutral-700'
+                      }`}>
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="text-3xl">{bossFight.icon}</div>
+                          <div>
+                            <h3 className="text-lg font-bold">{bossFight.name}</h3>
+                            <p className="text-sm text-neutral-400">{bossFight.description}</p>
+                          </div>
+                        </div>
+
+                        {bossFight.eligible ? (
+                          <div className="space-y-3">
+                            <div className="text-sm">
+                              <div className="font-semibold mb-1">Requirements Met:</div>
+                              <div className="text-emerald-400">✓ All prerequisites satisfied</div>
+                              <div className="text-emerald-400">✓ Performance threshold reached</div>
+                            </div>
+                            <button 
+                              onClick={() => {
+                                const bossFight = bossFightSystem.startBossFight(bossFight.id, userProfile);
+                                if (bossFight && !bossFight.error) {
+                                  setActiveBossFight(bossFight);
+                                }
+                              }}
+                              className="w-full bg-red-600 hover:bg-red-500 text-white rounded-lg px-3 py-2 font-semibold"
+                            >
+                              Challenge the {bossFight.name}!
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="text-sm">
+                              <div className="font-semibold mb-1">Requirements:</div>
+                              <div className="text-neutral-400">• {bossFight.requirements.prerequisiteSkills.join(', ')}</div>
+                              <div className="text-neutral-400">• {Math.round(bossFight.requirements.evidenceThreshold * 100)}% evidence mastery</div>
+                              <div className="text-neutral-400">• {Math.round(bossFight.requirements.performanceThreshold * 100)}% performance</div>
+                            </div>
+                            <div className="text-sm text-neutral-500">
+                              Status: {bossFight.reason}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
         return (
           <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
             <div className="max-w-6xl mx-auto">
@@ -5494,6 +6473,7 @@
                     { id: 'skills', label: 'Skills', icon: '🌳' },
                     { id: 'dual-track', label: 'Dual-Track', icon: '⚡' },
                     { id: 'blended-progression', label: 'Blended Progression', icon: '🧠' },
+                    { id: 'enhanced-assessment', label: 'Enhanced Assessment', icon: '🎓' },
                     { id: 'projects', label: 'Projects', icon: '🎯' },
                     { id: 'calendar', label: 'Calendar', icon: '📅' },
                     { id: 'analytics', label: 'Analytics', icon: '📊' }
@@ -6102,6 +7082,31 @@
                   adaptiveSystem={ADAPTIVE_SYSTEM}
                   gamificationSystem={GAMIFICATION_SYSTEM}
                   researchSystem={RESEARCH_SYSTEM}
+                  tasks={tasks}
+                  log={log}
+                  settings={settings}
+                />
+              )}
+
+              {activeTab === 'enhanced-assessment' && (
+                <EnhancedAssessmentTab 
+                  performanceHistory={performanceHistory}
+                  evidenceSubmissions={evidenceSubmissions}
+                  spacedTests={spacedTests}
+                  aiReviews={aiReviews}
+                  activeBossFight={activeBossFight}
+                  bossFightHistory={bossFightHistory}
+                  setPerformanceHistory={setPerformanceHistory}
+                  setEvidenceSubmissions={setEvidenceSubmissions}
+                  setSpacedTests={setSpacedTests}
+                  setAiReviews={setAiReviews}
+                  setActiveBossFight={setActiveBossFight}
+                  setBossFightHistory={setBossFightHistory}
+                  performanceTracking={PERFORMANCE_TRACKING}
+                  evidenceSystem={EVIDENCE_SYSTEM}
+                  spacedTesting={SPACED_TESTING}
+                  aiReviewSystem={AI_REVIEW_SYSTEM}
+                  bossFightSystem={BOSS_FIGHT_SYSTEM}
                   tasks={tasks}
                   log={log}
                   settings={settings}
