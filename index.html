@@ -581,19 +581,19 @@
         // Main progression calculation
         calculateProgression: (task, userProfile, performanceData) => {
           // 1. Competency-based evidence collection
-          const evidence = this.collectEvidence(task, performanceData);
+          const evidence = BLENDED_PROGRESSION_ENGINE.collectEvidence(task, performanceData);
           
           // 2. Mastery learning assessment
-          const masteryLevel = this.assessMastery(task, evidence, userProfile);
+          const masteryLevel = BLENDED_PROGRESSION_ENGINE.assessMastery(task, evidence, userProfile);
           
           // 3. Adaptive difficulty adjustment
-          const adaptedDifficulty = this.adjustDifficulty(userProfile, performanceData);
+          const adaptedDifficulty = BLENDED_PROGRESSION_ENGINE.adjustDifficulty(userProfile, performanceData);
           
           // 4. Gamification rewards
-          const gamificationRewards = this.calculateGamificationRewards(task, masteryLevel, userProfile);
+          const gamificationRewards = BLENDED_PROGRESSION_ENGINE.calculateGamificationRewards(task, masteryLevel, userProfile);
           
           // 5. Research-based optimization
-          const optimizedLearning = this.optimizeLearningExperience(task, userProfile);
+          const optimizedLearning = BLENDED_PROGRESSION_ENGINE.optimizeLearningExperience(task, userProfile);
           
           return {
             evidence,
@@ -601,18 +601,18 @@
             adaptedDifficulty,
             gamificationRewards,
             optimizedLearning,
-            progression: this.calculateOverallProgression(evidence, masteryLevel, gamificationRewards)
+            progression: BLENDED_PROGRESSION_ENGINE.calculateOverallProgression(evidence, masteryLevel, gamificationRewards)
           };
         },
 
         // Evidence collection system
         collectEvidence: (task, performanceData) => {
           const evidence = {
-            problem_solving: this.assessProblemSolving(task, performanceData),
-            explanation: this.assessExplanation(task, performanceData),
-            application: this.assessApplication(task, performanceData),
-            assessment: this.assessAssessment(task, performanceData),
-            reflection: this.assessReflection(task, performanceData)
+            problem_solving: BLENDED_PROGRESSION_ENGINE.assessProblemSolving(task, performanceData),
+            explanation: BLENDED_PROGRESSION_ENGINE.assessExplanation(task, performanceData),
+            application: BLENDED_PROGRESSION_ENGINE.assessApplication(task, performanceData),
+            assessment: BLENDED_PROGRESSION_ENGINE.assessAssessment(task, performanceData),
+            reflection: BLENDED_PROGRESSION_ENGINE.assessReflection(task, performanceData)
           };
 
           // Calculate weighted evidence score
@@ -639,8 +639,8 @@
           
           // Assess each Bloom's level
           Object.entries(MASTERY_SYSTEM.bloomLevels).forEach(([level, config]) => {
-            const levelEvidence = this.getBloomEvidence(evidence, level);
-            const masteryScore = this.calculateBloomMastery(levelEvidence, config.mastery_threshold);
+            const levelEvidence = BLENDED_PROGRESSION_ENGINE.getBloomEvidence(evidence, level);
+            const masteryScore = BLENDED_PROGRESSION_ENGINE.calculateBloomMastery(levelEvidence, config.mastery_threshold);
             
             bloomProgress[level] = {
               score: masteryScore,
@@ -665,8 +665,8 @@
             bloomProgress,
             currentTier,
             masteryPercentage,
-            nextTier: this.getNextTier(currentTier),
-            progressToNext: this.calculateProgressToNext(currentTier, masteryPercentage)
+            nextTier: BLENDED_PROGRESSION_ENGINE.getNextTier(currentTier),
+            progressToNext: BLENDED_PROGRESSION_ENGINE.calculateProgressToNext(currentTier, masteryPercentage)
           };
         },
 
@@ -677,14 +677,14 @@
           
           // Determine difficulty adjustment
           const avgScore = recentPerformance.reduce((sum, p) => sum + p.score, 0) / recentPerformance.length;
-          const difficultyLevel = this.classifyDifficulty(avgScore);
+          const difficultyLevel = BLENDED_PROGRESSION_ENGINE.classifyDifficulty(avgScore);
           
           return {
             currentAbility: userProfile.currentAbility,
             zpd,
             difficultyLevel,
             recommendedAdjustment: COMPETENCY_SYSTEM.difficultyLevels[difficultyLevel],
-            nextTaskDifficulty: this.calculateNextTaskDifficulty(zpd, difficultyLevel)
+            nextTaskDifficulty: BLENDED_PROGRESSION_ENGINE.calculateNextTaskDifficulty(zpd, difficultyLevel)
           };
         },
 
@@ -700,14 +700,14 @@
 
           // Check for new achievements
           Object.entries(GAMIFICATION_SYSTEM.achievements).forEach(([id, achievement]) => {
-            if (this.checkAchievementRequirements(achievement, task, masteryLevel, userProfile)) {
+            if (BLENDED_PROGRESSION_ENGINE.checkAchievementRequirements(achievement, task, masteryLevel, userProfile)) {
               rewards.achievements.push(achievement);
               rewards.unlocks.push(...achievement.unlocks);
             }
           });
 
           // Calculate skill progression
-          const skillProgress = this.calculateSkillProgress(task, masteryLevel);
+          const skillProgress = BLENDED_PROGRESSION_ENGINE.calculateSkillProgress(task, masteryLevel);
           rewards.skillPoints = skillProgress.points;
           rewards.coins = skillProgress.coins;
           rewards.experience = skillProgress.experience;
@@ -726,17 +726,17 @@
         // Learning experience optimization
         optimizeLearningExperience: (task, userProfile) => {
           // Cognitive load optimization
-          const cognitiveLoad = this.calculateCognitiveLoad(task, userProfile);
+          const cognitiveLoad = BLENDED_PROGRESSION_ENGINE.calculateCognitiveLoad(task, userProfile);
           
           // Learning style adaptation
           const learningStyle = userProfile.learningStyle || 'visual';
           const adaptations = RESEARCH_SYSTEM.learningStyles[learningStyle];
           
           // Metacognitive prompts
-          const metacognitivePrompts = this.generateMetacognitivePrompts(task, userProfile);
+          const metacognitivePrompts = BLENDED_PROGRESSION_ENGINE.generateMetacognitivePrompts(task, userProfile);
           
           // Spaced repetition scheduling
-          const reviewSchedule = this.calculateReviewSchedule(task, userProfile);
+          const reviewSchedule = BLENDED_PROGRESSION_ENGINE.calculateReviewSchedule(task, userProfile);
 
           return {
             cognitiveLoad,
@@ -744,7 +744,7 @@
             adaptations,
             metacognitivePrompts,
             reviewSchedule,
-            recommendations: this.generateLearningRecommendations(task, cognitiveLoad, adaptations)
+            recommendations: BLENDED_PROGRESSION_ENGINE.generateLearningRecommendations(task, cognitiveLoad, adaptations)
           };
         },
 
@@ -829,7 +829,7 @@
 
         calculateSkillProgress: (task, masteryLevel) => {
           const basePoints = 10;
-          const tierMultiplier = this.getTierMultiplier(masteryLevel.currentTier);
+          const tierMultiplier = BLENDED_PROGRESSION_ENGINE.getTierMultiplier(masteryLevel.currentTier);
           const masteryBonus = masteryLevel.masteryPercentage * 5;
           
           return {
@@ -859,7 +859,7 @@
         calculateProgressToNext: (currentTier, masteryPercentage) => {
           const thresholds = COMPETENCY_SYSTEM.masteryThresholds;
           const currentThreshold = thresholds[currentTier].required;
-          const nextTier = this.getNextTier(currentTier);
+          const nextTier = BLENDED_PROGRESSION_ENGINE.getNextTier(currentTier);
           
           if (!nextTier) return 1.0; // Already at max tier
           
@@ -870,8 +870,8 @@
 
         calculateCognitiveLoad: (task, userProfile) => {
           const intrinsic = RESEARCH_SYSTEM.cognitiveLoad.intrinsic[task.subject] || 0.5;
-          const extraneous = this.calculateExtraneousLoad(task);
-          const germane = this.calculateGermaneLoad(userProfile);
+          const extraneous = BLENDED_PROGRESSION_ENGINE.calculateExtraneousLoad(task);
+          const germane = BLENDED_PROGRESSION_ENGINE.calculateGermaneLoad(userProfile);
           
           return {
             intrinsic,
