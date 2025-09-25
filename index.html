@@ -205,6 +205,766 @@
         }
       };
 
+      // ================== BLENDED PROGRESSION SYSTEM ==================
+      
+      // 1. COMPETENCY-BASED PROGRESSION SYSTEM
+      const COMPETENCY_SYSTEM = {
+        // Evidence requirements for each skill level
+        evidenceTypes: {
+          'problem_solving': {
+            name: 'Problem Solving',
+            description: 'Demonstrate ability to solve novel problems',
+            weight: 1.0,
+            examples: ['Complete 5 challenging problems', 'Solve real-world application', 'Debug complex code']
+          },
+          'explanation': {
+            name: 'Explanation',
+            description: 'Explain concepts clearly to others',
+            weight: 0.8,
+            examples: ['Teach concept to peer', 'Write clear documentation', 'Create tutorial']
+          },
+          'application': {
+            name: 'Application',
+            description: 'Apply knowledge in new contexts',
+            weight: 1.2,
+            examples: ['Build project using skill', 'Apply to different domain', 'Create original work']
+          },
+          'assessment': {
+            name: 'Assessment',
+            description: 'Pass rigorous evaluation',
+            weight: 1.0,
+            examples: ['Pass comprehensive test', 'Complete peer review', 'Submit portfolio']
+          },
+          'reflection': {
+            name: 'Reflection',
+            description: 'Analyze and improve learning process',
+            weight: 0.6,
+            examples: ['Write learning journal', 'Identify knowledge gaps', 'Plan next steps']
+          }
+        },
+
+        // Mastery thresholds (90%+ required)
+        masteryThresholds: {
+          'novice': { required: 0.7, evidence_types: 2 },
+          'apprentice': { required: 0.8, evidence_types: 3 },
+          'proficient': { required: 0.85, evidence_types: 4 },
+          'advanced': { required: 0.9, evidence_types: 5 },
+          'expert': { required: 0.95, evidence_types: 5 }
+        },
+
+        // Adaptive difficulty scaling
+        difficultyLevels: {
+          'too_easy': { threshold: 0.95, adjustment: 1.3, message: 'Increasing challenge level' },
+          'optimal': { threshold: 0.85, adjustment: 1.0, message: 'Perfect difficulty' },
+          'challenging': { threshold: 0.7, adjustment: 0.8, message: 'Slightly reducing difficulty' },
+          'too_hard': { threshold: 0.5, adjustment: 0.6, message: 'Significantly reducing difficulty' }
+        }
+      };
+
+      // 2. MASTERY LEARNING SYSTEM
+      const MASTERY_SYSTEM = {
+        // Bloom's Taxonomy progression levels
+        bloomLevels: {
+          'remember': {
+            name: 'Remember',
+            description: 'Recall facts and basic concepts',
+            evidence_required: ['recall_facts', 'define_terms'],
+            mastery_threshold: 0.9
+          },
+          'understand': {
+            name: 'Understand',
+            description: 'Explain ideas or concepts',
+            evidence_required: ['explain_concepts', 'summarize_ideas'],
+            mastery_threshold: 0.9
+          },
+          'apply': {
+            name: 'Apply',
+            description: 'Use information in new situations',
+            evidence_required: ['solve_problems', 'use_procedures'],
+            mastery_threshold: 0.9
+          },
+          'analyze': {
+            name: 'Analyze',
+            description: 'Draw connections among ideas',
+            evidence_required: ['compare_contrast', 'identify_patterns'],
+            mastery_threshold: 0.9
+          },
+          'evaluate': {
+            name: 'Evaluate',
+            description: 'Justify a stand or decision',
+            evidence_required: ['critique_arguments', 'make_judgments'],
+            mastery_threshold: 0.9
+          },
+          'create': {
+            name: 'Create',
+            description: 'Produce new or original work',
+            evidence_required: ['design_solutions', 'create_original_work'],
+            mastery_threshold: 0.9
+          }
+        },
+
+        // Spaced repetition for skill maintenance
+        spacedRepetition: {
+          intervals: [1, 3, 7, 14, 30, 90], // days
+          decayRate: 0.1, // 10% per interval
+          reviewThreshold: 0.8, // Trigger review when below 80%
+          masteryBonus: 0.05 // 5% bonus for maintaining mastery
+        }
+      };
+
+      // 3. ADAPTIVE DIFFICULTY SYSTEM
+      const ADAPTIVE_SYSTEM = {
+        // Zone of Proximal Development (ZPD) calculation
+        calculateZPD: (currentAbility, performanceHistory) => {
+          const avgPerformance = performanceHistory.reduce((sum, p) => sum + p.score, 0) / performanceHistory.length;
+          const consistency = 1 - (Math.max(...performanceHistory.map(p => p.score)) - Math.min(...performanceHistory.map(p => p.score)));
+          
+          // Optimal challenge is just beyond current ability
+          const optimalDifficulty = currentAbility + (0.1 * consistency);
+          
+          return {
+            minDifficulty: Math.max(0.3, currentAbility - 0.1),
+            optimalDifficulty: Math.min(1.0, optimalDifficulty),
+            maxDifficulty: Math.min(1.0, currentAbility + 0.3),
+            confidence: consistency
+          };
+        },
+
+        // Performance tracking
+        trackPerformance: (task, score, timeSpent, estimatedTime) => {
+          const efficiency = estimatedTime / timeSpent;
+          const difficulty = task.difficulty || 0.5;
+          
+          return {
+            score,
+            efficiency,
+            difficulty,
+            timestamp: Date.now(),
+            taskId: task.id,
+            subject: task.subject,
+            subSkill: task.subSkill
+          };
+        },
+
+        // Adaptive content recommendation
+        recommendContent: (userProfile, availableContent) => {
+          const zpd = ADAPTIVE_SYSTEM.calculateZPD(userProfile.currentAbility, userProfile.performanceHistory);
+          
+          return availableContent.filter(content => 
+            content.difficulty >= zpd.minDifficulty && 
+            content.difficulty <= zpd.maxDifficulty
+          ).sort((a, b) => {
+            // Prioritize content closest to optimal difficulty
+            const aDistance = Math.abs(a.difficulty - zpd.optimalDifficulty);
+            const bDistance = Math.abs(b.difficulty - zpd.optimalDifficulty);
+            return aDistance - bDistance;
+          });
+        }
+      };
+
+      // 4. ENHANCED GAMIFICATION SYSTEM
+      const GAMIFICATION_SYSTEM = {
+        // Skill mastery tiers with real-world validation
+        masteryTiers: {
+          'novice': {
+            name: 'Novice',
+            description: 'Basic understanding and application',
+            requirements: {
+              bloom_levels: ['remember', 'understand'],
+              evidence_count: 2,
+              peer_reviews: 0,
+              projects: 0
+            },
+            unlocks: ['Basic tools', 'Simple challenges', 'Community access']
+          },
+          'apprentice': {
+            name: 'Apprentice',
+            description: 'Can apply knowledge with guidance',
+            requirements: {
+              bloom_levels: ['remember', 'understand', 'apply'],
+              evidence_count: 4,
+              peer_reviews: 1,
+              projects: 1
+            },
+            unlocks: ['Intermediate tools', 'Mentor access', 'Study groups']
+          },
+          'proficient': {
+            name: 'Proficient',
+            description: 'Independent application and analysis',
+            requirements: {
+              bloom_levels: ['remember', 'understand', 'apply', 'analyze'],
+              evidence_count: 6,
+              peer_reviews: 2,
+              projects: 2
+            },
+            unlocks: ['Advanced tools', 'Teaching opportunities', 'Research access']
+          },
+          'advanced': {
+            name: 'Advanced',
+            description: 'Can evaluate and create original work',
+            requirements: {
+              bloom_levels: ['remember', 'understand', 'apply', 'analyze', 'evaluate'],
+              evidence_count: 8,
+              peer_reviews: 3,
+              projects: 3
+            },
+            unlocks: ['Expert tools', 'Mentoring others', 'Conference presentations']
+          },
+          'expert': {
+            name: 'Expert',
+            description: 'Mastery with original contributions',
+            requirements: {
+              bloom_levels: ['remember', 'understand', 'apply', 'analyze', 'evaluate', 'create'],
+              evidence_count: 10,
+              peer_reviews: 5,
+              projects: 5
+            },
+            unlocks: ['All tools', 'Expert status', 'Research collaboration']
+          }
+        },
+
+        // Achievement system with meaningful unlocks
+        achievements: {
+          'first_derivative': {
+            name: 'First Derivative',
+            description: 'Master basic differentiation',
+            requirements: {
+              skill: 'differential_calculus',
+              tier: 'proficient',
+              evidence: ['problem_solving', 'explanation']
+            },
+            unlocks: ['Integration tools', 'Optimization challenges'],
+            icon: '📈'
+          },
+          'data_structures_master': {
+            name: 'Data Structures Master',
+            description: 'Master fundamental data structures',
+            requirements: {
+              skill: 'data_structures',
+              tier: 'advanced',
+              evidence: ['problem_solving', 'application', 'assessment']
+            },
+            unlocks: ['Algorithm challenges', 'System design tools'],
+            icon: '🏗️'
+          },
+          'research_paper': {
+            name: 'Research Contributor',
+            description: 'Complete original research work',
+            requirements: {
+              skill: 'research_methods',
+              tier: 'expert',
+              evidence: ['application', 'reflection', 'assessment']
+            },
+            unlocks: ['Advanced research tools', 'Peer review access'],
+            icon: '📚'
+          }
+        },
+
+        // Learning paths with cross-skill synergies
+        learningPaths: {
+          'mathematician': {
+            name: 'The Mathematician',
+            description: 'Pure mathematical reasoning and proof',
+            skills: ['calculus', 'linear_algebra', 'real_analysis', 'abstract_algebra'],
+            synergies: {
+              'calculus + linear_algebra': 'Multivariable calculus',
+              'real_analysis + abstract_algebra': 'Advanced mathematical structures'
+            },
+            final_unlock: 'Mathematical research collaboration'
+          },
+          'data_scientist': {
+            name: 'The Data Scientist',
+            description: 'Statistical analysis and machine learning',
+            skills: ['statistics', 'programming', 'machine_learning', 'data_visualization'],
+            synergies: {
+              'statistics + programming': 'Statistical computing',
+              'machine_learning + data_visualization': 'ML model interpretation'
+            },
+            final_unlock: 'Industry data science projects'
+          },
+          'researcher': {
+            name: 'The Researcher',
+            description: 'Academic research and discovery',
+            skills: ['research_methods', 'critical_thinking', 'writing', 'presentation'],
+            synergies: {
+              'research_methods + critical_thinking': 'Rigorous analysis',
+              'writing + presentation': 'Effective communication'
+            },
+            final_unlock: 'Academic publication opportunities'
+          }
+        }
+      };
+
+      // 5. RESEARCH-BASED LEARNING SYSTEM
+      const RESEARCH_SYSTEM = {
+        // Cognitive load optimization
+        cognitiveLoad: {
+          intrinsic: {
+            // Difficulty inherent to the material
+            'arithmetic': 0.3,
+            'algebra': 0.5,
+            'calculus': 0.7,
+            'real_analysis': 0.9
+          },
+          extraneous: {
+            // Poor design that adds unnecessary difficulty
+            'confusing_interface': 0.2,
+            'unclear_instructions': 0.3,
+            'irrelevant_information': 0.1
+          },
+          germane: {
+            // Effort devoted to learning and schema construction
+            'active_processing': -0.2, // Reduces load
+            'pattern_recognition': -0.3,
+            'metacognitive_reflection': -0.1
+          }
+        },
+
+        // Learning style adaptation
+        learningStyles: {
+          'visual': {
+            preferences: ['diagrams', 'charts', 'videos', 'infographics'],
+            adaptations: {
+              'problem_solving': 'Visual problem decomposition',
+              'explanation': 'Concept maps and flowcharts'
+            }
+          },
+          'auditory': {
+            preferences: ['discussions', 'lectures', 'podcasts', 'explanations'],
+            adaptations: {
+              'problem_solving': 'Verbal reasoning aloud',
+              'explanation': 'Oral presentations and discussions'
+            }
+          },
+          'kinesthetic': {
+            preferences: ['hands_on', 'projects', 'experiments', 'building'],
+            adaptations: {
+              'problem_solving': 'Physical modeling and manipulation',
+              'explanation': 'Interactive demonstrations'
+            }
+          },
+          'reading_writing': {
+            preferences: ['text', 'notes', 'writing', 'reading'],
+            adaptations: {
+              'problem_solving': 'Written step-by-step solutions',
+              'explanation': 'Detailed written explanations'
+            }
+          }
+        },
+
+        // Metacognitive strategies
+        metacognition: {
+          strategies: {
+            'planning': {
+              name: 'Planning',
+              description: 'Set goals and strategies before learning',
+              prompts: ['What do I want to achieve?', 'How will I approach this?', 'What resources do I need?']
+            },
+            'monitoring': {
+              name: 'Monitoring',
+              description: 'Track understanding during learning',
+              prompts: ['Do I understand this?', 'Am I making progress?', 'What is confusing?']
+            },
+            'evaluating': {
+              name: 'Evaluating',
+              description: 'Assess learning after completion',
+              prompts: ['What did I learn?', 'What was difficult?', 'How can I improve?']
+            }
+          }
+        }
+      };
+
+      // ================== BLENDED PROGRESSION ENGINE ==================
+      
+      // Core engine that integrates all five systems
+      const BLENDED_PROGRESSION_ENGINE = {
+        // Main progression calculation
+        calculateProgression: (task, userProfile, performanceData) => {
+          // 1. Competency-based evidence collection
+          const evidence = this.collectEvidence(task, performanceData);
+          
+          // 2. Mastery learning assessment
+          const masteryLevel = this.assessMastery(task, evidence, userProfile);
+          
+          // 3. Adaptive difficulty adjustment
+          const adaptedDifficulty = this.adjustDifficulty(userProfile, performanceData);
+          
+          // 4. Gamification rewards
+          const gamificationRewards = this.calculateGamificationRewards(task, masteryLevel, userProfile);
+          
+          // 5. Research-based optimization
+          const optimizedLearning = this.optimizeLearningExperience(task, userProfile);
+          
+          return {
+            evidence,
+            masteryLevel,
+            adaptedDifficulty,
+            gamificationRewards,
+            optimizedLearning,
+            progression: this.calculateOverallProgression(evidence, masteryLevel, gamificationRewards)
+          };
+        },
+
+        // Evidence collection system
+        collectEvidence: (task, performanceData) => {
+          const evidence = {
+            problem_solving: this.assessProblemSolving(task, performanceData),
+            explanation: this.assessExplanation(task, performanceData),
+            application: this.assessApplication(task, performanceData),
+            assessment: this.assessAssessment(task, performanceData),
+            reflection: this.assessReflection(task, performanceData)
+          };
+
+          // Calculate weighted evidence score
+          let totalScore = 0;
+          let totalWeight = 0;
+          
+          Object.entries(evidence).forEach(([type, score]) => {
+            const weight = COMPETENCY_SYSTEM.evidenceTypes[type].weight;
+            totalScore += score * weight;
+            totalWeight += weight;
+          });
+
+          return {
+            ...evidence,
+            overallScore: totalWeight > 0 ? totalScore / totalWeight : 0,
+            timestamp: Date.now(),
+            taskId: task.id
+          };
+        },
+
+        // Mastery assessment using Bloom's taxonomy
+        assessMastery: (task, evidence, userProfile) => {
+          const bloomProgress = {};
+          
+          // Assess each Bloom's level
+          Object.entries(MASTERY_SYSTEM.bloomLevels).forEach(([level, config]) => {
+            const levelEvidence = this.getBloomEvidence(evidence, level);
+            const masteryScore = this.calculateBloomMastery(levelEvidence, config.mastery_threshold);
+            
+            bloomProgress[level] = {
+              score: masteryScore,
+              mastered: masteryScore >= config.mastery_threshold,
+              evidence: levelEvidence
+            };
+          });
+
+          // Determine overall mastery tier
+          const masteredLevels = Object.values(bloomProgress).filter(level => level.mastered).length;
+          const totalLevels = Object.keys(bloomProgress).length;
+          const masteryPercentage = masteredLevels / totalLevels;
+
+          let currentTier = 'novice';
+          Object.entries(COMPETENCY_SYSTEM.masteryThresholds).forEach(([tier, threshold]) => {
+            if (masteryPercentage >= threshold.required) {
+              currentTier = tier;
+            }
+          });
+
+          return {
+            bloomProgress,
+            currentTier,
+            masteryPercentage,
+            nextTier: this.getNextTier(currentTier),
+            progressToNext: this.calculateProgressToNext(currentTier, masteryPercentage)
+          };
+        },
+
+        // Adaptive difficulty adjustment
+        adjustDifficulty: (userProfile, performanceData) => {
+          const recentPerformance = performanceData.slice(-10); // Last 10 tasks
+          const zpd = ADAPTIVE_SYSTEM.calculateZPD(userProfile.currentAbility, recentPerformance);
+          
+          // Determine difficulty adjustment
+          const avgScore = recentPerformance.reduce((sum, p) => sum + p.score, 0) / recentPerformance.length;
+          const difficultyLevel = this.classifyDifficulty(avgScore);
+          
+          return {
+            currentAbility: userProfile.currentAbility,
+            zpd,
+            difficultyLevel,
+            recommendedAdjustment: COMPETENCY_SYSTEM.difficultyLevels[difficultyLevel],
+            nextTaskDifficulty: this.calculateNextTaskDifficulty(zpd, difficultyLevel)
+          };
+        },
+
+        // Gamification rewards calculation
+        calculateGamificationRewards: (task, masteryLevel, userProfile) => {
+          const rewards = {
+            achievements: [],
+            unlocks: [],
+            skillPoints: 0,
+            coins: 0,
+            experience: 0
+          };
+
+          // Check for new achievements
+          Object.entries(GAMIFICATION_SYSTEM.achievements).forEach(([id, achievement]) => {
+            if (this.checkAchievementRequirements(achievement, task, masteryLevel, userProfile)) {
+              rewards.achievements.push(achievement);
+              rewards.unlocks.push(...achievement.unlocks);
+            }
+          });
+
+          // Calculate skill progression
+          const skillProgress = this.calculateSkillProgress(task, masteryLevel);
+          rewards.skillPoints = skillProgress.points;
+          rewards.coins = skillProgress.coins;
+          rewards.experience = skillProgress.experience;
+
+          // Check for tier advancement
+          if (masteryLevel.progressToNext >= 1.0) {
+            const nextTier = masteryLevel.nextTier;
+            const tierRewards = GAMIFICATION_SYSTEM.masteryTiers[nextTier];
+            rewards.unlocks.push(...tierRewards.unlocks);
+            rewards.coins += 50; // Tier advancement bonus
+          }
+
+          return rewards;
+        },
+
+        // Learning experience optimization
+        optimizeLearningExperience: (task, userProfile) => {
+          // Cognitive load optimization
+          const cognitiveLoad = this.calculateCognitiveLoad(task, userProfile);
+          
+          // Learning style adaptation
+          const learningStyle = userProfile.learningStyle || 'visual';
+          const adaptations = RESEARCH_SYSTEM.learningStyles[learningStyle];
+          
+          // Metacognitive prompts
+          const metacognitivePrompts = this.generateMetacognitivePrompts(task, userProfile);
+          
+          // Spaced repetition scheduling
+          const reviewSchedule = this.calculateReviewSchedule(task, userProfile);
+
+          return {
+            cognitiveLoad,
+            learningStyle,
+            adaptations,
+            metacognitivePrompts,
+            reviewSchedule,
+            recommendations: this.generateLearningRecommendations(task, cognitiveLoad, adaptations)
+          };
+        },
+
+        // Helper methods
+        assessProblemSolving: (task, performanceData) => {
+          // Assess problem-solving ability based on task completion and accuracy
+          const accuracy = performanceData.accuracy || 0.8;
+          const timeEfficiency = performanceData.timeEfficiency || 1.0;
+          const complexity = task.difficulty || 0.5;
+          
+          return Math.min(1.0, (accuracy * 0.6 + timeEfficiency * 0.2 + complexity * 0.2));
+        },
+
+        assessExplanation: (task, performanceData) => {
+          // Assess explanation ability (requires user input or peer review)
+          return performanceData.explanationScore || 0.7;
+        },
+
+        assessApplication: (task, performanceData) => {
+          // Assess application in new contexts
+          return performanceData.applicationScore || 0.6;
+        },
+
+        assessAssessment: (task, performanceData) => {
+          // Assess performance on formal assessments
+          return performanceData.assessmentScore || 0.8;
+        },
+
+        assessReflection: (task, performanceData) => {
+          // Assess metacognitive reflection
+          return performanceData.reflectionScore || 0.5;
+        },
+
+        getBloomEvidence: (evidence, bloomLevel) => {
+          // Map evidence types to Bloom's taxonomy levels
+          const mapping = {
+            'remember': ['assessment'],
+            'understand': ['explanation', 'assessment'],
+            'apply': ['problem_solving', 'application'],
+            'analyze': ['problem_solving', 'explanation'],
+            'evaluate': ['reflection', 'explanation'],
+            'create': ['application', 'problem_solving']
+          };
+
+          const relevantEvidence = mapping[bloomLevel] || [];
+          return relevantEvidence.map(type => evidence[type] || 0);
+        },
+
+        calculateBloomMastery: (evidence, threshold) => {
+          const avgEvidence = evidence.reduce((sum, score) => sum + score, 0) / evidence.length;
+          return Math.min(1.0, avgEvidence / threshold);
+        },
+
+        classifyDifficulty: (avgScore) => {
+          if (avgScore >= 0.95) return 'too_easy';
+          if (avgScore >= 0.85) return 'optimal';
+          if (avgScore >= 0.7) return 'challenging';
+          return 'too_hard';
+        },
+
+        calculateNextTaskDifficulty: (zpd, difficultyLevel) => {
+          const adjustment = COMPETENCY_SYSTEM.difficultyLevels[difficultyLevel].adjustment;
+          return Math.min(1.0, Math.max(0.1, zpd.optimalDifficulty * adjustment));
+        },
+
+        checkAchievementRequirements: (achievement, task, masteryLevel, userProfile) => {
+          // Check if achievement requirements are met
+          const requirements = achievement.requirements;
+          
+          return (
+            requirements.skill === task.subSkill &&
+            masteryLevel.currentTier === requirements.tier &&
+            this.hasRequiredEvidence(requirements.evidence, masteryLevel)
+          );
+        },
+
+        hasRequiredEvidence: (requiredEvidence, masteryLevel) => {
+          return requiredEvidence.every(evidenceType => 
+            masteryLevel.bloomProgress[evidenceType]?.mastered || false
+          );
+        },
+
+        calculateSkillProgress: (task, masteryLevel) => {
+          const basePoints = 10;
+          const tierMultiplier = this.getTierMultiplier(masteryLevel.currentTier);
+          const masteryBonus = masteryLevel.masteryPercentage * 5;
+          
+          return {
+            points: Math.round(basePoints * tierMultiplier),
+            coins: Math.round(basePoints * tierMultiplier * 0.5),
+            experience: Math.round(basePoints * tierMultiplier + masteryBonus)
+          };
+        },
+
+        getTierMultiplier: (tier) => {
+          const multipliers = {
+            'novice': 1.0,
+            'apprentice': 1.2,
+            'proficient': 1.5,
+            'advanced': 2.0,
+            'expert': 3.0
+          };
+          return multipliers[tier] || 1.0;
+        },
+
+        getNextTier: (currentTier) => {
+          const tiers = ['novice', 'apprentice', 'proficient', 'advanced', 'expert'];
+          const currentIndex = tiers.indexOf(currentTier);
+          return currentIndex < tiers.length - 1 ? tiers[currentIndex + 1] : null;
+        },
+
+        calculateProgressToNext: (currentTier, masteryPercentage) => {
+          const thresholds = COMPETENCY_SYSTEM.masteryThresholds;
+          const currentThreshold = thresholds[currentTier].required;
+          const nextTier = this.getNextTier(currentTier);
+          
+          if (!nextTier) return 1.0; // Already at max tier
+          
+          const nextThreshold = thresholds[nextTier].required;
+          const progress = (masteryPercentage - currentThreshold) / (nextThreshold - currentThreshold);
+          return Math.max(0, Math.min(1, progress));
+        },
+
+        calculateCognitiveLoad: (task, userProfile) => {
+          const intrinsic = RESEARCH_SYSTEM.cognitiveLoad.intrinsic[task.subject] || 0.5;
+          const extraneous = this.calculateExtraneousLoad(task);
+          const germane = this.calculateGermaneLoad(userProfile);
+          
+          return {
+            intrinsic,
+            extraneous,
+            germane,
+            total: intrinsic + extraneous + germane,
+            optimal: intrinsic + germane, // Target load
+            overload: intrinsic + extraneous + germane > 0.8
+          };
+        },
+
+        calculateExtraneousLoad: (task) => {
+          let load = 0;
+          if (task.interfaceComplexity) load += 0.1;
+          if (task.unclearInstructions) load += 0.2;
+          if (task.irrelevantInfo) load += 0.1;
+          return load;
+        },
+
+        calculateGermaneLoad: (userProfile) => {
+          let load = 0;
+          if (userProfile.activeProcessing) load -= 0.2;
+          if (userProfile.patternRecognition) load -= 0.3;
+          if (userProfile.metacognitiveReflection) load -= 0.1;
+          return load;
+        },
+
+        generateMetacognitivePrompts: (task, userProfile) => {
+          const strategy = RESEARCH_SYSTEM.metacognition.strategies[userProfile.metacognitiveStrategy] || 
+                          RESEARCH_SYSTEM.metacognition.strategies.planning;
+          
+          return {
+            preTask: strategy.prompts.slice(0, 2),
+            duringTask: strategy.prompts.slice(1, 3),
+            postTask: strategy.prompts.slice(2)
+          };
+        },
+
+        calculateReviewSchedule: (task, userProfile) => {
+          const intervals = MASTERY_SYSTEM.spacedRepetition.intervals;
+          const currentMastery = userProfile.skillMastery[task.subSkill] || 0.5;
+          
+          // Calculate next review based on current mastery
+          let nextReview = intervals[0]; // Start with 1 day
+          for (let i = 0; i < intervals.length; i++) {
+            if (currentMastery >= 0.8 + (i * 0.05)) {
+              nextReview = intervals[i];
+            } else {
+              break;
+            }
+          }
+          
+          return {
+            nextReview: Date.now() + (nextReview * 24 * 60 * 60 * 1000),
+            interval: nextReview,
+            masteryDecay: currentMastery * (1 - MASTERY_SYSTEM.spacedRepetition.decayRate)
+          };
+        },
+
+        generateLearningRecommendations: (task, cognitiveLoad, adaptations) => {
+          const recommendations = [];
+          
+          if (cognitiveLoad.overload) {
+            recommendations.push('Consider breaking this task into smaller chunks');
+          }
+          
+          if (cognitiveLoad.extraneous > 0.2) {
+            recommendations.push('Simplify the interface or instructions');
+          }
+          
+          // Add learning style specific recommendations
+          recommendations.push(...adaptations.preferences.map(pref => 
+            `Try incorporating ${pref} into your learning`
+          ));
+          
+          return recommendations;
+        },
+
+        calculateOverallProgression: (evidence, masteryLevel, gamificationRewards) => {
+          return {
+            evidenceScore: evidence.overallScore,
+            masteryTier: masteryLevel.currentTier,
+            masteryPercentage: masteryLevel.masteryPercentage,
+            achievements: gamificationRewards.achievements.length,
+            unlocks: gamificationRewards.unlocks.length,
+            skillPoints: gamificationRewards.skillPoints,
+            coins: gamificationRewards.coins,
+            experience: gamificationRewards.experience,
+            timestamp: Date.now()
+          };
+        }
+      };
+
       // ================== ML-Enhanced XP System ==================
       
       // Objective Academic Knowledge Database
@@ -1729,7 +2489,10 @@
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-sm font-semibold text-emerald-300">Auto XP (Recommended)</div>
                     <div className="text-xs text-emerald-400">
-                      {calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).source}
+                      {(() => {
+                        const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                        return autoXP.source || 'Academic Knowledge';
+                      })()}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -1741,10 +2504,17 @@
                       }}
                       className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow"
                     >
-                      Use Auto XP ({calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).xp} XP)
+                      {(() => {
+                        const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                        return `Use Auto XP (${autoXP.xp} XP)`;
+                      })()}
                     </button>
                     <div className="text-xs text-neutral-400">
-                      Objective: {calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).breakdown.objective} XP
+                      {(() => {
+                        const autoXP = calculateAutoXP(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                        const objective = autoXP.breakdown?.objective || autoXP.xp;
+                        return `Objective: ${objective} XP`;
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1755,7 +2525,10 @@
                     <div className="flex items-center justify-between mb-2">
                       <div className="text-sm font-semibold text-purple-300">ML Recommendation</div>
                       <div className="text-xs text-purple-400">
-                        Confidence: {getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).confidence}%
+                        {(() => {
+                          const mlRec = getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                          return `Confidence: ${mlRec.confidence}%`;
+                        })()}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -1767,10 +2540,16 @@
                         }}
                         className="bg-purple-600 hover:bg-purple-500 text-white rounded-xl px-3 py-2 text-sm font-semibold shadow"
                       >
-                        Use ML ({getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).xp} XP)
+                        {(() => {
+                          const mlRec = getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                          return `Use ML (${mlRec.xp} XP)`;
+                        })()}
                       </button>
                       <div className="text-xs text-neutral-400">
-                        Objective: {getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin).objective} XP
+                        {(() => {
+                          const mlRec = getMLRecommendation(form.subject, form.subSkill, 'Practice', form.difficulty, form.estimateMin);
+                          return `Objective: ${mlRec.objective} XP`;
+                        })()}
                       </div>
                     </div>
                   </div>
@@ -3365,32 +4144,11 @@
 
         // Enhanced ML-Enhanced XP Calculation Functions
         const suggestXP = (title, subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
-          // Use enhanced objective calculation as base
-          const objectiveXP = ML_SYSTEM.calculateObjectiveXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
+          // Get dual-track XP calculation
+          const dualTrackResult = calculateDualTrackXP(subject, subSkill, taskType, difficulty, estimatedTime, userLevel);
           
-          // Use ML system for prediction if we have enough data
-          if (Object.keys(xpLearning.userAdjustments).length > 3) {
-            const mlPrediction = ML_SYSTEM.predictOptimalXP(
-              subject, subSkill, taskType, difficulty, estimatedTime, 
-              mlData.patterns, mlData.learning, userLevel
-            );
-            return mlPrediction.xp;
-          }
-          
-          // Apply keyword detection to objective calculation
-          const keywords = title.toLowerCase();
-          let multiplier = 1.0;
-          if (keywords.includes('exam') || keywords.includes('test') || keywords.includes('final')) {
-            multiplier *= 1.3;
-          }
-          if (keywords.includes('project') || keywords.includes('assignment') || keywords.includes('essay')) {
-            multiplier *= 1.2;
-          }
-          if (keywords.includes('review') || keywords.includes('practice') || keywords.includes('homework')) {
-            multiplier *= 0.9;
-          }
-          
-          return Math.max(5, Math.round(objectiveXP * multiplier));
+          // Return the total XP for backward compatibility with UI
+          return dualTrackResult.xp;
         };
 
         const getMLRecommendation = (subject, subSkill, taskType, difficulty, estimatedTime, userLevel = 5) => {
@@ -4513,6 +5271,207 @@
           return SMART_SCHEDULING.suggestOptimalTime(category, taskType, difficulty, hourlyStats);
         };
 
+        // ================== BLENDED PROGRESSION TAB COMPONENT ==================
+        
+        const BlendedProgressionTab = ({ 
+          blendedProgressionEngine, 
+          competencySystem, 
+          masterySystem, 
+          adaptiveSystem, 
+          gamificationSystem, 
+          researchSystem,
+          tasks,
+          log,
+          settings 
+        }) => {
+          // Calculate current user profile based on tasks and log
+          const userProfile = {
+            currentAbility: 0.6, // Default, would be calculated from performance
+            performanceHistory: log.slice(-10).map(entry => ({
+              score: entry.efficiency || 0.8,
+              timestamp: entry.timestamp
+            })),
+            learningStyle: 'visual', // Would be determined from user preferences
+            metacognitiveStrategy: 'planning',
+            skillMastery: {}, // Would be calculated from completed tasks
+            activeProcessing: true,
+            patternRecognition: true,
+            metacognitiveReflection: true
+          };
+
+          // Sample task for demonstration
+          const sampleTask = tasks[0] || {
+            id: 'sample',
+            title: 'Sample Task',
+            subject: 'Math',
+            subSkill: 'differential_calculus',
+            difficulty: 0.7,
+            baseXP: 100
+          };
+
+          // Calculate blended progression for sample task
+          const progressionData = blendedProgressionEngine.calculateProgression(
+            sampleTask, 
+            userProfile, 
+            userProfile.performanceHistory
+          );
+
+          return (
+            <div className="space-y-6">
+              {/* System Overview */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="text-3xl">🧠</div>
+                  <div>
+                    <h1 className="text-2xl font-bold">Blended Progression System</h1>
+                    <p className="text-neutral-400">Advanced learning progression combining 5 research-based approaches</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                  <div className="p-4 bg-blue-950/30 border border-blue-800 rounded-xl">
+                    <div className="text-lg font-semibold text-blue-300 mb-2">1. Competency-Based</div>
+                    <div className="text-sm text-neutral-300">Evidence-driven progression with 90%+ mastery thresholds</div>
+                  </div>
+                  <div className="p-4 bg-purple-950/30 border border-purple-800 rounded-xl">
+                    <div className="text-lg font-semibold text-purple-300 mb-2">2. Mastery Learning</div>
+                    <div className="text-sm text-neutral-300">Bloom's taxonomy with spaced repetition</div>
+                  </div>
+                  <div className="p-4 bg-emerald-950/30 border border-emerald-800 rounded-xl">
+                    <div className="text-lg font-semibold text-emerald-300 mb-2">3. Adaptive Difficulty</div>
+                    <div className="text-sm text-neutral-300">Zone of Proximal Development optimization</div>
+                  </div>
+                  <div className="p-4 bg-amber-950/30 border border-amber-800 rounded-xl">
+                    <div className="text-lg font-semibold text-amber-300 mb-2">4. Gamification</div>
+                    <div className="text-sm text-neutral-300">Achievement tiers with meaningful unlocks</div>
+                  </div>
+                  <div className="p-4 bg-red-950/30 border border-red-800 rounded-xl">
+                    <div className="text-lg font-semibold text-red-300 mb-2">5. Research-Based</div>
+                    <div className="text-sm text-neutral-300">Cognitive load & learning style optimization</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Evidence Collection */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">📋 Evidence Collection System</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                  {Object.entries(competencySystem.evidenceTypes).map(([type, config]) => (
+                    <div key={type} className="p-4 bg-neutral-800 border border-neutral-700 rounded-xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="font-semibold text-sm">{config.name}</div>
+                        <div className="text-xs text-neutral-400">Weight: {config.weight}</div>
+                      </div>
+                      <div className="text-xs text-neutral-300 mb-2">{config.description}</div>
+                      <div className="space-y-1">
+                        {config.examples.slice(0, 2).map((example, index) => (
+                          <div key={index} className="text-xs text-neutral-400">• {example}</div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-neutral-800 rounded-xl p-4">
+                  <h3 className="font-semibold mb-3">Current Evidence Score</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    {Object.entries(progressionData.evidence).filter(([key]) => key !== 'overallScore' && key !== 'timestamp' && key !== 'taskId').map(([type, score]) => (
+                      <div key={type} className="text-center">
+                        <div className="text-sm font-semibold">{type.replace('_', ' ')}</div>
+                        <div className="text-lg font-bold text-emerald-400">{Math.round(score * 100)}%</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="mt-3 pt-3 border-t border-neutral-700">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">Overall Evidence Score</span>
+                      <span className="text-xl font-bold text-blue-400">{Math.round(progressionData.evidence.overallScore * 100)}%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Mastery Assessment */}
+              <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
+                <h2 className="text-xl font-semibold mb-4">🎯 Mastery Assessment (Bloom's Taxonomy)</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+                  {Object.entries(masterySystem.bloomLevels).map(([level, config]) => (
+                    <div key={level} className={`p-3 rounded-xl border ${
+                      progressionData.masteryLevel.bloomProgress[level]?.mastered 
+                        ? 'bg-emerald-950/30 border-emerald-800' 
+                        : 'bg-neutral-800 border-neutral-700'
+                    }`}>
+                      <div className="text-sm font-semibold mb-1">{config.name}</div>
+                      <div className="text-xs text-neutral-400 mb-2">{config.description}</div>
+                      <div className={`text-lg font-bold ${
+                        progressionData.masteryLevel.bloomProgress[level]?.mastered 
+                          ? 'text-emerald-400' 
+                          : 'text-neutral-400'
+                      }`}>
+                        {Math.round((progressionData.masteryLevel.bloomProgress[level]?.score || 0) * 100)}%
+                      </div>
+                      {progressionData.masteryLevel.bloomProgress[level]?.mastered && (
+                        <div className="text-xs text-emerald-300 mt-1">✓ Mastered</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="bg-neutral-800 rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="font-semibold">Current Mastery Tier</h3>
+                    <div className="text-sm text-neutral-400">
+                      {Math.round(progressionData.masteryLevel.masteryPercentage * 100)}% Complete
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="text-2xl font-bold text-purple-400 capitalize">
+                      {progressionData.masteryLevel.currentTier}
+                    </div>
+                    {progressionData.masteryLevel.nextTier && (
+                      <div className="flex-1">
+                        <div className="text-sm text-neutral-400 mb-1">Progress to {progressionData.masteryLevel.nextTier}</div>
+                        <div className="w-full bg-neutral-700 rounded-full h-2">
+                          <div 
+                            className="bg-purple-500 h-2 rounded-full transition-all duration-300"
+                            style={{ width: `${Math.round(progressionData.masteryLevel.progressToNext * 100)}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Overall Progression Summary */}
+              <div className="bg-gradient-to-r from-purple-900/20 to-blue-900/20 rounded-2xl shadow border border-purple-800/50 p-6">
+                <h2 className="text-xl font-semibold mb-4">📈 Overall Progression Summary</h2>
+                
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="text-center p-4 bg-neutral-800/50 rounded-xl">
+                    <div className="text-2xl font-bold text-emerald-400">{Math.round(progressionData.progression.evidenceScore * 100)}%</div>
+                    <div className="text-sm text-neutral-400">Evidence Score</div>
+                  </div>
+                  <div className="text-center p-4 bg-neutral-800/50 rounded-xl">
+                    <div className="text-2xl font-bold text-purple-400 capitalize">{progressionData.progression.masteryTier}</div>
+                    <div className="text-sm text-neutral-400">Mastery Tier</div>
+                  </div>
+                  <div className="text-center p-4 bg-neutral-800/50 rounded-xl">
+                    <div className="text-2xl font-bold text-amber-400">{progressionData.progression.achievements}</div>
+                    <div className="text-sm text-neutral-400">Achievements</div>
+                  </div>
+                  <div className="text-center p-4 bg-neutral-800/50 rounded-xl">
+                    <div className="text-2xl font-bold text-blue-400">{progressionData.progression.experience}</div>
+                    <div className="text-sm text-neutral-400">Experience</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
         return (
           <div className="min-h-screen bg-neutral-950 text-neutral-100 p-6">
             <div className="max-w-6xl mx-auto">
@@ -4534,6 +5493,7 @@
                     { id: 'tasks', label: 'Tasks', icon: '📝' },
                     { id: 'skills', label: 'Skills', icon: '🌳' },
                     { id: 'dual-track', label: 'Dual-Track', icon: '⚡' },
+                    { id: 'blended-progression', label: 'Blended Progression', icon: '🧠' },
                     { id: 'projects', label: 'Projects', icon: '🎯' },
                     { id: 'calendar', label: 'Calendar', icon: '📅' },
                     { id: 'analytics', label: 'Analytics', icon: '📊' }
@@ -5132,6 +6092,20 @@
                     </div>
                   </div>
                 </div>
+              )}
+
+              {activeTab === 'blended-progression' && (
+                <BlendedProgressionTab 
+                  blendedProgressionEngine={BLENDED_PROGRESSION_ENGINE}
+                  competencySystem={COMPETENCY_SYSTEM}
+                  masterySystem={MASTERY_SYSTEM}
+                  adaptiveSystem={ADAPTIVE_SYSTEM}
+                  gamificationSystem={GAMIFICATION_SYSTEM}
+                  researchSystem={RESEARCH_SYSTEM}
+                  tasks={tasks}
+                  log={log}
+                  settings={settings}
+                />
               )}
 
               {activeTab === 'tasks' && (
