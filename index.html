@@ -6070,6 +6070,140 @@
           log,
           settings
         }) => {
+          // State for interactive features
+          const [selectedSkill, setSelectedSkill] = useState('');
+          const [selectedEvidenceType, setSelectedEvidenceType] = useState('');
+          const [evidenceContent, setEvidenceContent] = useState('');
+          const [currentAIReview, setCurrentAIReview] = useState(null);
+          const [currentSpacedTest, setCurrentSpacedTest] = useState(null);
+          const [spacedTestAnswers, setSpacedTestAnswers] = useState({});
+
+          // Handle evidence submission
+          const handleEvidenceSubmission = () => {
+            if (!selectedSkill || !selectedEvidenceType || !evidenceContent.trim()) {
+              alert('Please fill in all fields');
+              return;
+            }
+
+            const evidence = evidenceSystem.submitEvidence(selectedSkill, selectedEvidenceType, evidenceContent, 'novice');
+            setEvidenceSubmissions(prev => [...prev, evidence]);
+            setEvidenceContent('');
+            alert('Evidence submitted successfully!');
+          };
+
+          // Handle AI review start
+          const handleStartAIReview = () => {
+            if (!selectedSkill) {
+              alert('Please select a skill');
+              return;
+            }
+
+            const questions = aiReviewSystem.generateQuestions(selectedSkill, 'novice', 0.8);
+            if (questions.length === 0) {
+              alert('No questions available for this skill yet');
+              return;
+            }
+
+            setCurrentAIReview({
+              skill: selectedSkill,
+              questions,
+              currentQuestion: 0,
+              answers: {},
+              startTime: Date.now()
+            });
+          };
+
+          // Handle AI review answer submission
+          const handleAIReviewAnswer = (questionIndex, answer) => {
+            if (!currentAIReview) return;
+
+            const updatedAnswers = { ...currentAIReview.answers, [questionIndex]: answer };
+            const nextQuestion = questionIndex + 1;
+
+            if (nextQuestion >= currentAIReview.questions.length) {
+              // Complete the review
+              const assessment = aiReviewSystem.assessResponse(
+                currentAIReview.questions[0], 
+                Object.values(updatedAnswers).join(' '), 
+                selectedSkill, 
+                'novice'
+              );
+
+              const reviewResult = {
+                id: `review_${Date.now()}`,
+                skill: selectedSkill,
+                questions: currentAIReview.questions,
+                answers: updatedAnswers,
+                assessment,
+                timestamp: Date.now()
+              };
+
+              setAiReviews(prev => [...prev, reviewResult]);
+              setCurrentAIReview(null);
+              alert(`AI Review Complete! Overall Score: ${Math.round(assessment.overallScore * 100)}%`);
+            } else {
+              setCurrentAIReview(prev => ({
+                ...prev,
+                currentQuestion: nextQuestion,
+                answers: updatedAnswers
+              }));
+            }
+          };
+
+          // Handle spaced test start
+          const handleStartSpacedTest = () => {
+            if (!selectedSkill) {
+              alert('Please select a skill');
+              return;
+            }
+
+            const questions = spacedTesting.generateTestQuestions(selectedSkill, 'quick_test', 0.5);
+            if (questions.length === 0) {
+              alert('No test questions available for this skill yet');
+              return;
+            }
+
+            setCurrentSpacedTest({
+              skill: selectedSkill,
+              testType: 'quick_test',
+              questions,
+              startTime: Date.now(),
+              answers: {}
+            });
+          };
+
+          // Handle spaced test completion
+          const handleCompleteSpacedTest = () => {
+            if (!currentSpacedTest) return;
+
+            const score = Object.keys(spacedTestAnswers).length / currentSpacedTest.questions.length;
+            const testResult = {
+              id: `test_${Date.now()}`,
+              skill: selectedSkill,
+              testType: currentSpacedTest.testType,
+              score,
+              answers: spacedTestAnswers,
+              completedAt: Date.now()
+            };
+
+            setSpacedTests(prev => [...prev, testResult]);
+            
+            // Schedule next review
+            const nextReview = spacedTesting.scheduleNextReview(selectedSkill, score, 0.5);
+            const scheduledReview = {
+              skill: selectedSkill,
+              testType: nextReview.testType,
+              nextReview: nextReview.nextReview,
+              interval: nextReview.interval,
+              performanceLevel: nextReview.performanceLevel
+            };
+            
+            setSpacedTests(prev => [...prev, scheduledReview]);
+            
+            setCurrentSpacedTest(null);
+            setSpacedTestAnswers({});
+            alert(`Spaced Test Complete! Score: ${Math.round(score * 100)}%`);
+          };
           // Calculate current user profile
           const userProfile = {
             skillMastery: {},
@@ -6208,24 +6342,38 @@
                 <div className="bg-neutral-800 rounded-xl p-4">
                   <h3 className="font-semibold mb-3">Submit Evidence</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <select className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
-                      <option>Select Skill</option>
-                      <option>Differential Calculus</option>
-                      <option>Algebra I</option>
+                    <select 
+                      className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2"
+                      value={selectedSkill}
+                      onChange={(e) => setSelectedSkill(e.target.value)}
+                    >
+                      <option value="">Select Skill</option>
+                      <option value="differential_calculus">Differential Calculus</option>
+                      <option value="algebra_i">Algebra I</option>
+                      <option value="arithmetic_foundations">Arithmetic Foundations</option>
                     </select>
-                    <select className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
-                      <option>Select Evidence Type</option>
-                      <option>Explain Solutions</option>
-                      <option>Teach Concepts</option>
-                      <option>Error Detection</option>
-                      <option>Real Applications</option>
+                    <select 
+                      className="bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2"
+                      value={selectedEvidenceType}
+                      onChange={(e) => setSelectedEvidenceType(e.target.value)}
+                    >
+                      <option value="">Select Evidence Type</option>
+                      <option value="explain_solutions">Explain Solutions</option>
+                      <option value="teach_concepts">Teach Concepts</option>
+                      <option value="identify_mistakes">Error Detection</option>
+                      <option value="apply_knowledge">Real Applications</option>
                     </select>
                   </div>
                   <textarea 
                     className="w-full mt-3 bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 h-24"
                     placeholder="Describe your evidence submission..."
+                    value={evidenceContent}
+                    onChange={(e) => setEvidenceContent(e.target.value)}
                   ></textarea>
-                  <button className="mt-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-semibold">
+                  <button 
+                    onClick={handleEvidenceSubmission}
+                    className="mt-3 bg-blue-600 hover:bg-blue-500 text-white rounded-lg px-4 py-2 font-semibold"
+                  >
                     Submit Evidence
                   </button>
                 </div>
@@ -6234,6 +6382,81 @@
               {/* Spaced Testing */}
               <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
                 <h2 className="text-xl font-semibold mb-4">⏰ Spaced Testing</h2>
+                
+                {/* Active Spaced Test */}
+                {currentSpacedTest && (
+                  <div className="mb-6 p-6 bg-emerald-950/20 border border-emerald-800 rounded-xl">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-emerald-300">
+                        Spaced Test: {currentSpacedTest.skill}
+                      </h3>
+                      <div className="text-sm text-emerald-400">
+                        {currentSpacedTest.testType.replace('_', ' ').toUpperCase()}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {currentSpacedTest.questions.map((question, index) => (
+                        <div key={index} className="p-4 bg-neutral-800 rounded-lg">
+                          <div className="font-semibold mb-2">
+                            Question {index + 1}: {question.question}
+                          </div>
+                          <div className="text-xs text-neutral-400 mb-3">
+                            Type: {question.type} | Difficulty: {question.difficulty}
+                          </div>
+                          <div className="space-y-2">
+                            {question.options ? (
+                              question.options.map((option, optIndex) => (
+                                <label key={optIndex} className="flex items-center space-x-2">
+                                  <input 
+                                    type="radio" 
+                                    name={`question_${index}`}
+                                    value={option}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSpacedTestAnswers(prev => ({ ...prev, [index]: option }));
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-sm">{option}</span>
+                                </label>
+                              ))
+                            ) : (
+                              <textarea 
+                                className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 h-20"
+                                placeholder="Your answer..."
+                                onChange={(e) => {
+                                  const answer = e.target.value;
+                                  if (answer.trim()) {
+                                    setSpacedTestAnswers(prev => ({ ...prev, [index]: answer }));
+                                  }
+                                }}
+                              ></textarea>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    
+                    <div className="flex gap-3 mt-4">
+                      <button 
+                        onClick={handleCompleteSpacedTest}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-4 py-2 font-semibold"
+                      >
+                        Complete Test
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setCurrentSpacedTest(null);
+                          setSpacedTestAnswers({});
+                        }}
+                        className="bg-neutral-600 hover:bg-neutral-500 text-white rounded-lg px-4 py-2 font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="p-4 bg-neutral-800 rounded-xl">
@@ -6266,12 +6489,20 @@
 
                   <div className="p-4 bg-neutral-800 rounded-xl">
                     <h3 className="font-semibold mb-3">Start Review</h3>
-                    <select className="w-full mb-3 bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
-                      <option>Select Skill</option>
-                      <option>Differential Calculus</option>
-                      <option>Algebra I</option>
+                    <select 
+                      className="w-full mb-3 bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2"
+                      value={selectedSkill}
+                      onChange={(e) => setSelectedSkill(e.target.value)}
+                    >
+                      <option value="">Select Skill</option>
+                      <option value="differential_calculus">Differential Calculus</option>
+                      <option value="algebra_i">Algebra I</option>
+                      <option value="arithmetic_foundations">Arithmetic Foundations</option>
                     </select>
-                    <button className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2 font-semibold">
+                    <button 
+                      onClick={handleStartSpacedTest}
+                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg px-3 py-2 font-semibold"
+                    >
                       Start Test
                     </button>
                   </div>
@@ -6281,6 +6512,59 @@
               {/* AI Review */}
               <div className="bg-neutral-900 rounded-2xl shadow border border-neutral-800 p-6">
                 <h2 className="text-xl font-semibold mb-4">🤖 AI Review</h2>
+                
+                {/* Active AI Review */}
+                {currentAIReview && (
+                  <div className="mb-6 p-6 bg-purple-950/20 border border-purple-800 rounded-xl">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-purple-300">
+                        AI Review: {currentAIReview.skill}
+                      </h3>
+                      <div className="text-sm text-purple-400">
+                        Question {currentAIReview.currentQuestion + 1} of {currentAIReview.questions.length}
+                      </div>
+                    </div>
+                    
+                    <div className="mb-4">
+                      <div className="font-semibold mb-2">
+                        {currentAIReview.questions[currentAIReview.currentQuestion].question}
+                      </div>
+                      <div className="text-xs text-neutral-400 mb-3">
+                        Type: {currentAIReview.questions[currentAIReview.currentQuestion].type}
+                      </div>
+                      <textarea 
+                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 h-24"
+                        placeholder="Your answer..."
+                        onChange={(e) => {
+                          const answer = e.target.value;
+                          const currentIndex = currentAIReview.currentQuestion;
+                          if (answer.trim()) {
+                            setSpacedTestAnswers(prev => ({ ...prev, [currentIndex]: answer }));
+                          }
+                        }}
+                      ></textarea>
+                    </div>
+                    
+                    <div className="flex gap-3">
+                      <button 
+                        onClick={() => {
+                          const currentIndex = currentAIReview.currentQuestion;
+                          const answer = document.querySelector('textarea').value;
+                          handleAIReviewAnswer(currentIndex, answer);
+                        }}
+                        className="bg-purple-600 hover:bg-purple-500 text-white rounded-lg px-4 py-2 font-semibold"
+                      >
+                        {currentAIReview.currentQuestion + 1 >= currentAIReview.questions.length ? 'Complete Review' : 'Next Question'}
+                      </button>
+                      <button 
+                        onClick={() => setCurrentAIReview(null)}
+                        className="bg-neutral-600 hover:bg-neutral-500 text-white rounded-lg px-4 py-2 font-semibold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-4">
@@ -6310,12 +6594,20 @@
                   <div className="space-y-4">
                     <h3 className="font-semibold">Start AI Review</h3>
                     <div className="space-y-3">
-                      <select className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2">
-                        <option>Select Skill</option>
-                        <option>Differential Calculus</option>
-                        <option>Algebra I</option>
+                      <select 
+                        className="w-full bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2"
+                        value={selectedSkill}
+                        onChange={(e) => setSelectedSkill(e.target.value)}
+                      >
+                        <option value="">Select Skill</option>
+                        <option value="differential_calculus">Differential Calculus</option>
+                        <option value="algebra_i">Algebra I</option>
+                        <option value="arithmetic_foundations">Arithmetic Foundations</option>
                       </select>
-                      <button className="w-full bg-purple-600 hover:bg-purple-500 text-white rounded-lg px-3 py-2 font-semibold">
+                      <button 
+                        onClick={handleStartAIReview}
+                        className="w-full bg-purple-600 hover:bg-purple-500 text-white rounded-lg px-3 py-2 font-semibold"
+                      >
                         Start AI Review
                       </button>
                     </div>
