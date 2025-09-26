@@ -683,15 +683,44 @@
         // Initialize OpenAI API key
         setApiKey: (apiKey) => {
           console.log('Setting API key:', apiKey ? apiKey.substring(0, 10) + '...' : 'null');
+          
+          // Validate API key format
+          if (apiKey && !apiKey.startsWith('sk-')) {
+            console.error('Invalid API key format. OpenAI API keys should start with "sk-"');
+            alert('Invalid API key format. OpenAI API keys should start with "sk-"');
+            return;
+          }
+          
+          // Prevent storing HTML content
+          if (apiKey && apiKey.includes('<!doctype')) {
+            console.error('Attempted to store HTML content as API key');
+            alert('Invalid API key. Please enter a valid OpenAI API key.');
+            return;
+          }
+          
           AI_REVIEW_SYSTEM.openaiApiKey = apiKey;
-          localStorage.setItem('openai_api_key', apiKey);
+          localStorage.setItem('lifexp_openai_api_key', apiKey);
           console.log('API key set successfully');
         },
         
         // Load API key from localStorage
         loadApiKey: () => {
-          const savedKey = localStorage.getItem('openai_api_key');
+          const savedKey = localStorage.getItem('lifexp_openai_api_key');
           console.log('Loading API key from localStorage:', savedKey ? savedKey.substring(0, 10) + '...' : 'null');
+          
+          // Validate loaded key
+          if (savedKey && savedKey.includes('<!doctype')) {
+            console.error('Found HTML content in localStorage, clearing invalid key');
+            localStorage.removeItem('lifexp_openai_api_key');
+            return null;
+          }
+          
+          if (savedKey && !savedKey.startsWith('sk-')) {
+            console.error('Invalid API key format in localStorage, clearing');
+            localStorage.removeItem('lifexp_openai_api_key');
+            return null;
+          }
+          
           if (savedKey) {
             AI_REVIEW_SYSTEM.openaiApiKey = savedKey;
             console.log('API key loaded successfully');
