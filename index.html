@@ -207,6 +207,234 @@
 
       // ================== ENHANCED ASSESSMENT SYSTEM ==================
       
+      // Question Banks for AI Review and Spaced Testing
+      const QUESTION_BANKS = {
+        differential_calculus: {
+          quick_test: [
+            {
+              question: "What is the derivative of x²?",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["2x", "x", "2", "x²"],
+              correct_answer: "2x"
+            },
+            {
+              question: "Find the derivative of sin(x) + cos(x)",
+              type: "quick_recall", 
+              difficulty: "basic",
+              options: ["cos(x) - sin(x)", "sin(x) - cos(x)", "cos(x) + sin(x)", "2sin(x)cos(x)"],
+              correct_answer: "cos(x) - sin(x)"
+            },
+            {
+              question: "What is the derivative of e^x?",
+              type: "quick_recall",
+              difficulty: "basic", 
+              options: ["e^x", "xe^x", "ln(x)", "1/x"],
+              correct_answer: "e^x"
+            }
+          ],
+          application_test: [
+            {
+              question: "A ball is thrown upward with velocity v(t) = 20 - 9.8t. When does it reach maximum height?",
+              type: "application",
+              difficulty: "intermediate",
+              options: ["2.04 seconds", "1.02 seconds", "4.08 seconds", "3.06 seconds"],
+              correct_answer: "2.04 seconds"
+            },
+            {
+              question: "Find the critical points of f(x) = x³ - 3x² + 1",
+              type: "application",
+              difficulty: "intermediate",
+              options: ["x = 0, x = 2", "x = 1, x = -1", "x = 0, x = 1", "x = -1, x = 2"],
+              correct_answer: "x = 0, x = 2"
+            }
+          ],
+          comprehensive_test: [
+            {
+              question: "Explain the relationship between a function's derivative and its rate of change",
+              type: "explanation",
+              difficulty: "advanced",
+              explanation: "The derivative represents the instantaneous rate of change of a function at any point. It tells us how fast the function is changing at that specific moment."
+            },
+            {
+              question: "Use the chain rule to find the derivative of sin(x²)",
+              type: "problem_solving",
+              difficulty: "intermediate",
+              solution: "Using chain rule: d/dx[sin(x²)] = cos(x²) · d/dx[x²] = cos(x²) · 2x = 2x cos(x²)"
+            }
+          ]
+        },
+        algebra_i: {
+          quick_test: [
+            {
+              question: "Solve for x: 2x + 5 = 13",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["x = 4", "x = 6", "x = 8", "x = 9"],
+              correct_answer: "x = 4"
+            },
+            {
+              question: "What is the slope of the line y = 3x - 2?",
+              type: "quick_recall",
+              difficulty: "basic", 
+              options: ["3", "-2", "2", "-3"],
+              correct_answer: "3"
+            },
+            {
+              question: "Factor: x² - 4",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["(x-2)(x+2)", "(x-4)(x+1)", "(x-1)(x+4)", "(x-2)²"],
+              correct_answer: "(x-2)(x+2)"
+            }
+          ],
+          application_test: [
+            {
+              question: "A line passes through points (1,3) and (4,9). What is its equation?",
+              type: "application",
+              difficulty: "intermediate",
+              options: ["y = 2x + 1", "y = 3x + 0", "y = x + 2", "y = 2x - 1"],
+              correct_answer: "y = 2x + 1"
+            }
+          ],
+          comprehensive_test: [
+            {
+              question: "Explain why we can factor x² - 4 as (x-2)(x+2)",
+              type: "explanation",
+              difficulty: "intermediate",
+              explanation: "This is the difference of squares pattern: a² - b² = (a-b)(a+b). Here, x² - 4 = x² - 2² = (x-2)(x+2)."
+            }
+          ]
+        },
+        arithmetic_foundations: {
+          quick_test: [
+            {
+              question: "What is 15% of 200?",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["30", "25", "35", "40"],
+              correct_answer: "30"
+            },
+            {
+              question: "Convert 3/4 to a decimal",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["0.75", "0.25", "0.5", "0.8"],
+              correct_answer: "0.75"
+            },
+            {
+              question: "What is the least common multiple of 4 and 6?",
+              type: "quick_recall",
+              difficulty: "basic",
+              options: ["12", "24", "6", "4"],
+              correct_answer: "12"
+            }
+          ],
+          application_test: [
+            {
+              question: "If a shirt costs $25 and is on sale for 20% off, what is the final price?",
+              type: "application",
+              difficulty: "intermediate",
+              options: ["$20", "$15", "$18", "$22"],
+              correct_answer: "$20"
+            }
+          ],
+          comprehensive_test: [
+            {
+              question: "Explain why 0.5 is equivalent to 1/2",
+              type: "explanation",
+              difficulty: "basic",
+              explanation: "0.5 represents 5 tenths, which is 5/10. Simplifying 5/10 by dividing both numerator and denominator by 5 gives us 1/2."
+            }
+          ]
+        }
+      };
+
+      // AI Review Questions
+      const AI_REVIEW_QUESTIONS = {
+        differential_calculus: [
+          {
+            question: "What is the geometric interpretation of a derivative?",
+            type: "conceptual",
+            difficulty: "basic"
+          },
+          {
+            question: "Explain why the derivative of a constant function is zero",
+            type: "explanation", 
+            difficulty: "basic"
+          },
+          {
+            question: "How do you use the product rule to find the derivative of f(x) · g(x)?",
+            type: "procedural",
+            difficulty: "intermediate"
+          },
+          {
+            question: "What does it mean when the second derivative is positive at a point?",
+            type: "conceptual",
+            difficulty: "intermediate"
+          },
+          {
+            question: "Describe a real-world scenario where you would use optimization with derivatives",
+            type: "application",
+            difficulty: "advanced"
+          }
+        ],
+        algebra_i: [
+          {
+            question: "What is the difference between a linear and quadratic equation?",
+            type: "conceptual",
+            difficulty: "basic"
+          },
+          {
+            question: "Why do we need to check our solutions when solving radical equations?",
+            type: "explanation",
+            difficulty: "intermediate"
+          },
+          {
+            question: "How do you solve a system of linear equations using substitution?",
+            type: "procedural", 
+            difficulty: "intermediate"
+          },
+          {
+            question: "What does the discriminant tell us about the roots of a quadratic equation?",
+            type: "conceptual",
+            difficulty: "intermediate"
+          },
+          {
+            question: "Explain how to graph a linear inequality in two variables",
+            type: "procedural",
+            difficulty: "intermediate"
+          }
+        ],
+        arithmetic_foundations: [
+          {
+            question: "What is the difference between a prime and composite number?",
+            type: "conceptual",
+            difficulty: "basic"
+          },
+          {
+            question: "Why do we need to find common denominators when adding fractions?",
+            type: "explanation",
+            difficulty: "basic"
+          },
+          {
+            question: "How do you convert a repeating decimal to a fraction?",
+            type: "procedural",
+            difficulty: "intermediate"
+          },
+          {
+            question: "What is the relationship between percentages, decimals, and fractions?",
+            type: "conceptual",
+            difficulty: "basic"
+          },
+          {
+            question: "Explain the order of operations and why it's important",
+            type: "explanation",
+            difficulty: "basic"
+          }
+        ]
+      };
+      
       // 1. PERFORMANCE TRACKING SYSTEM
       const PERFORMANCE_TRACKING = {
         // Enhanced task completion data
@@ -414,28 +642,29 @@
 
         // Generate test questions
         generateTestQuestions: (skill, testType, difficulty) => {
-          const questionTemplates = {
-            'differential_calculus': {
-              'basic_recall': [
-                'What is the derivative of x^n?',
-                'State the product rule for differentiation',
-                'What is the chain rule?'
-              ],
-              'problem_solving': [
-                'Find the derivative of f(x) = (x² + 1)³',
-                'Use the quotient rule to differentiate f(x) = (2x + 1)/(x - 1)',
-                'Find dy/dx for y = sin(x² + 1)'
-              ],
-              'full_mastery': [
-                'Optimize the area of a rectangle with perimeter 20',
-                'Find the equation of the tangent line to y = x³ - 3x at x = 2',
-                'Analyze the critical points of f(x) = x⁴ - 4x³ + 6x²'
-              ]
-            }
+          const skillQuestions = QUESTION_BANKS[skill];
+          if (!skillQuestions) return [];
+          
+          // Map test types to question bank categories
+          const typeMapping = {
+            'quick_test': 'quick_test',
+            'application': 'application_test', 
+            'comprehensive': 'comprehensive_test'
           };
-
-          const templates = questionTemplates[skill]?.[testType] || [];
-          return templates.slice(0, SPACED_TESTING.testTypes[testType].questions);
+          
+          const questionCategory = typeMapping[testType] || 'quick_test';
+          const questions = skillQuestions[questionCategory] || skillQuestions.quick_test || [];
+          
+          // Filter by difficulty if needed
+          const filteredQuestions = questions.filter(q => {
+            if (difficulty < 0.3) return q.difficulty === 'basic';
+            if (difficulty < 0.7) return ['basic', 'intermediate'].includes(q.difficulty);
+            return true; // All difficulties for high performance
+          });
+          
+          // Return appropriate number of questions
+          const questionCount = testType === 'comprehensive' ? Math.min(3, filteredQuestions.length) : Math.min(2, filteredQuestions.length);
+          return filteredQuestions.slice(0, questionCount);
         }
       };
 
@@ -472,58 +701,76 @@
 
         // Generate AI questions based on user responses
         generateQuestions: (skill, userTier, recentPerformance) => {
-          const templates = AI_REVIEW_SYSTEM.questionTemplates[skill];
-          if (!templates) return [];
-
-          // Select question types based on tier and performance
-          let questionTypes = [];
-          if (userTier === 'novice' || userTier === 'apprentice') {
-            questionTypes = ['conceptual', 'procedural'];
-          } else if (userTier === 'proficient') {
-            questionTypes = ['conceptual', 'procedural', 'problem_solving'];
-          } else {
-            questionTypes = ['conceptual', 'procedural', 'problem_solving', 'application'];
-          }
-
+          const skillQuestions = AI_REVIEW_QUESTIONS[skill] || [];
+          if (skillQuestions.length === 0) return [];
+          
+          // Filter questions by difficulty based on tier
+          const filteredQuestions = skillQuestions.filter(q => {
+            if (userTier === 'novice') return q.difficulty === 'basic';
+            if (userTier === 'apprentice') return ['basic', 'intermediate'].includes(q.difficulty);
+            return true; // All difficulties for proficient and above
+          });
+          
           // Generate 2-4 questions based on performance
-          const questionCount = recentPerformance < 0.7 ? 4 : recentPerformance < 0.9 ? 3 : 2;
+          const questionCount = recentPerformance < 0.7 ? Math.min(4, filteredQuestions.length) : 
+                               recentPerformance < 0.9 ? Math.min(3, filteredQuestions.length) : 
+                               Math.min(2, filteredQuestions.length);
+          
           const questions = [];
-
-          for (let i = 0; i < questionCount; i++) {
-            const type = questionTypes[i % questionTypes.length];
-            const typeQuestions = templates[type] || [];
-            if (typeQuestions.length > 0) {
-              questions.push({
-                type,
-                question: typeQuestions[Math.floor(Math.random() * typeQuestions.length)],
-                difficulty: userTier
-              });
-            }
+          const usedIndices = new Set();
+          
+          for (let i = 0; i < questionCount && usedIndices.size < filteredQuestions.length; i++) {
+            let randomIndex;
+            do {
+              randomIndex = Math.floor(Math.random() * filteredQuestions.length);
+            } while (usedIndices.has(randomIndex));
+            
+            usedIndices.add(randomIndex);
+            questions.push(filteredQuestions[randomIndex]);
           }
-
+          
           return questions;
         },
 
         // Assess user responses
         assessResponse: (question, userResponse, skill, userTier) => {
-          // This would integrate with an AI service in a real implementation
-          // For now, we'll simulate assessment based on response length and keywords
-          const assessment = {
-            conceptualUnderstanding: 0.7,
-            proceduralFluency: 0.8,
-            problemSolving: 0.6,
-            communication: 0.75,
-            overallScore: 0.71
-          };
-
           // Simulate AI analysis based on response characteristics
           const responseLength = userResponse.length;
           const hasKeywords = AI_REVIEW_SYSTEM.checkKeywords(userResponse, skill);
           const hasExplanation = userResponse.includes('because') || userResponse.includes('since') || userResponse.includes('therefore');
-
-          if (responseLength > 100 && hasKeywords && hasExplanation) {
-            assessment.overallScore = Math.min(1.0, assessment.overallScore + 0.2);
-          }
+          const hasMathTerms = /derivative|integral|function|equation|solve|calculate/.test(userResponse.toLowerCase());
+          const hasSteps = /step|first|then|next|finally/.test(userResponse.toLowerCase());
+          
+          // Base scores that vary based on response quality
+          let baseScore = 0.5; // Start at 50%
+          
+          // Length bonus (0-20 points)
+          if (responseLength > 200) baseScore += 0.2;
+          else if (responseLength > 100) baseScore += 0.15;
+          else if (responseLength > 50) baseScore += 0.1;
+          
+          // Keyword bonus (0-15 points)
+          if (hasKeywords) baseScore += 0.15;
+          
+          // Explanation bonus (0-10 points)
+          if (hasExplanation) baseScore += 0.1;
+          
+          // Math terms bonus (0-10 points)
+          if (hasMathTerms) baseScore += 0.1;
+          
+          // Step-by-step bonus (0-5 points)
+          if (hasSteps) baseScore += 0.05;
+          
+          // Cap at 100%
+          baseScore = Math.min(1.0, baseScore);
+          
+          const assessment = {
+            conceptualUnderstanding: Math.min(1.0, baseScore + (Math.random() - 0.5) * 0.1),
+            proceduralFluency: Math.min(1.0, baseScore + (Math.random() - 0.5) * 0.1),
+            problemSolving: Math.min(1.0, baseScore + (Math.random() - 0.5) * 0.1),
+            communication: Math.min(1.0, baseScore + (Math.random() - 0.5) * 0.1),
+            overallScore: baseScore
+          };
 
           return {
             ...assessment,
@@ -535,7 +782,9 @@
         // Check for relevant keywords in responses
         checkKeywords: (response, skill) => {
           const keywords = {
-            'differential_calculus': ['derivative', 'differentiation', 'chain rule', 'product rule', 'quotient rule', 'limit', 'rate of change']
+            'differential_calculus': ['derivative', 'differentiation', 'chain rule', 'product rule', 'quotient rule', 'limit', 'rate of change', 'slope', 'tangent', 'critical point'],
+            'algebra_i': ['equation', 'solve', 'variable', 'slope', 'intercept', 'linear', 'quadratic', 'factor', 'simplify', 'substitute'],
+            'arithmetic_foundations': ['percentage', 'fraction', 'decimal', 'percent', 'ratio', 'proportion', 'prime', 'composite', 'factor', 'multiple']
           };
 
           const skillKeywords = keywords[skill] || [];
